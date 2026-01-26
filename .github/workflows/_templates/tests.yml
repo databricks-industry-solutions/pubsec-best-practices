@@ -1,0 +1,37 @@
+name: Run Tests
+
+on:
+  workflow_call:
+    inputs:
+      project_path:
+        required: true
+        type: string
+        description: "Path to the project directory (e.g., solution-accelerators/xsd-to-synthetic)"
+      python_version:
+        required: false
+        type: string
+        default: "3.12"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.project_path }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run tests
+        run: uv run pytest -v

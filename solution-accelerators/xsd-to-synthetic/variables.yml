@@ -1,0 +1,7 @@
+# Environment-specific variables for xsd-to-synthetic
+# These can be overridden per environment in asset-bundles/databricks.yml
+
+# Example variables:
+# catalog_name: main
+# schema_name: xsd_synthetic
+# storage_path: /Volumes/main/xsd_synthetic/data

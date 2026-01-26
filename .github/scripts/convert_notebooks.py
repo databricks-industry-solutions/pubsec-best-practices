@@ -1,116 +1,74 @@
 #!/usr/bin/env python3
+"""Convert Jupyter notebooks to Databricks notebook format.
 
-import os
-import re
-import markdown
-import glob
-import html
+This script converts .ipynb files to Databricks-compatible .py files
+with the # Databricks notebook source header.
+"""
 
-
-def parse_databricks_notebook(filepath):
-    """Parse a Databricks .py notebook format into cells"""
-    with open(filepath, 'r') as f:
-        content = f.read()
-    
-    # Split by COMMAND ----------
-    sections = re.split(r'# COMMAND ----------', content)
-    cells = []
-    
-    for section in sections:
-        if not section.strip():
-            continue
-            
-        # Check if this is a markdown cell
-        if '# MAGIC %md' in section:
-            # Extract markdown content
-            lines = section.split('\n')
-            md_lines = []
-            for line in lines:
-                if line.startswith('# MAGIC %md'):
-                    # Remove '# MAGIC %md'
-                    md_lines.append(line[11:].strip())
-                elif line.startswith('# MAGIC '):
-                    # Remove '# MAGIC '
-                    md_lines.append(line[8:])
-                elif line.startswith('# MAGIC'):
-                    # Remove '# MAGIC'
-                    md_lines.append(line[7:])
-            
-            md_content = '\n'.join(md_lines)
-            cells.append({'type': 'markdown', 'content': md_content})
-        else:
-            # This is a code cell
-            # Remove any leading comments that aren't actual code
-            lines = section.split('\n')
-            code_lines = []
-            for line in lines:
-                if not line.startswith('# DBTITLE'):
-                    code_lines.append(line)
-            
-            code_content = '\n'.join(code_lines).strip()
-            if code_content:
-                cells.append({'type': 'code', 'content': code_content})
-    
-    return cells
+import json
+import sys
+from pathlib import Path
 
 
-def convert_to_html_fragment(filepath):
-    """Convert Databricks .py notebook to HTML fragment with syntax highlighting"""
-    filename = os.path.basename(filepath)
-    name_without_ext = os.path.splitext(filename)[0]
-    
-    cells = parse_databricks_notebook(filepath)
-    html_content = []
-    
-    for i, cell in enumerate(cells):
-        if cell['type'] == 'markdown':
-            # Convert markdown to HTML using nbconvert structure
-            md_html = markdown.markdown(
-                cell['content'], 
-                extensions=['fenced_code', 'tables', 'nl2br', 'toc']
-            )
-            html_content.append(f'''<div class="cell border-box-sizing text_cell rendered">
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-{md_html}
-</div>
-</div>
-</div>''')
-        elif cell['type'] == 'code':
-            # Create code cell with proper syntax highlighting for Python
-            escaped_code = html.escape(cell['content'])
-            html_content.append(f'''<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="inner_cell">
-<div class="input_area">
-<div class="highlight hl-ipython3">
-<pre class="language-python"><code class="language-python">{escaped_code}</code></pre>
-</div>
-</div>
-</div>
-</div>
-</div>''')
-    
-    # Return just the content fragment (no full HTML document)
-    fragment_content = '\n'.join(html_content)
-    
-    # Write fragment to temp file for the main script to read
-    temp_path = f"temp_{name_without_ext}_fragment.html"
-    with open(temp_path, 'w') as f:
-        f.write(fragment_content)
-    
-    return name_without_ext, fragment_content
+def convert_notebook(ipynb_path: Path, output_path: Path | None = None) -> None:
+    """Convert a Jupyter notebook to Databricks format.
+
+    Args:
+        ipynb_path: Path to the .ipynb file
+        output_path: Optional output path. Defaults to same name with .py extension.
+    """
+    if output_path is None:
+        output_path = ipynb_path.with_suffix(".py")
+
+    with open(ipynb_path) as f:
+        notebook = json.load(f)
+
+    lines = ["# Databricks notebook source"]
+
+    for cell in notebook.get("cells", []):
+        cell_type = cell.get("cell_type")
+        source = "".join(cell.get("source", []))
+
+        if cell_type == "markdown":
+            lines.append("# MAGIC %md")
+            for line in source.split("\n"):
+                lines.append(f"# MAGIC {line}")
+        elif cell_type == "code":
+            lines.append(source)
+
+        lines.append("")
+        lines.append("# COMMAND ----------")
+        lines.append("")
+
+    # Remove trailing command separator
+    while lines and lines[-1] in ("", "# COMMAND ----------"):
+        lines.pop()
+
+    with open(output_path, "w") as f:
+        f.write("\n".join(lines))
+
+    print(f"Converted: {ipynb_path} -> {output_path}")
+
+
+def main() -> None:
+    if len(sys.argv) < 2:
+        print("Usage: convert_notebooks.py <notebook.ipynb> [output.py]")
+        print("       convert_notebooks.py <directory>")
+        sys.exit(1)
+
+    path = Path(sys.argv[1])
+
+    if path.is_file():
+        output = Path(sys.argv[2]) if len(sys.argv) > 2 else None
+        convert_notebook(path, output)
+    elif path.is_dir():
+        for ipynb in path.rglob("*.ipynb"):
+            if ".ipynb_checkpoints" not in str(ipynb):
+                convert_notebook(ipynb)
+    else:
+        print(f"Error: {path} not found")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    # Process all .py files in notebooks directory
-    notebook_data = {}
-    for py_file in glob.glob('notebooks/*.py'):
-        name, fragment = convert_to_html_fragment(py_file)
-        notebook_data[name] = fragment
-        print(f"Converted {py_file} to HTML fragment")
-    
-    # Write notebook data to a JSON file for the main script
-    import json
-    with open('notebook_fragments.json', 'w') as f:
-        json.dump(notebook_data, f)
+    main()

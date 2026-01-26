@@ -1,0 +1,18 @@
+[project]
+name = "<demo-name>"  # Replace with your demo name
+version = "0.1.0"
+description = "<Demo description>"
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    # Add dependencies here
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

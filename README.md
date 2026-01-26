@@ -1,38 +1,70 @@
-# Databricks Solution Accelerator Template - MODIFY THIS README.md
+# Public Sector Best Practices
 
 [![Databricks](https://img.shields.io/badge/Databricks-Solution_Accelerator-FF3621?style=for-the-badge&logo=databricks)](https://databricks.com)
 [![Unity Catalog](https://img.shields.io/badge/Unity_Catalog-Enabled-00A1C9?style=for-the-badge)](https://docs.databricks.com/en/data-governance/unity-catalog/index.html)
 [![Serverless](https://img.shields.io/badge/Serverless-Compute-00C851?style=for-the-badge)](https://docs.databricks.com/en/compute/serverless.html)
 
-## Installation Guidelines
+A mono-repo for public sector solution accelerators and demos built on Databricks.
 
-1. Clone the project you'd like to run into your Databricks Workspace
+## Projects
 
-<img width="1726" height="677" alt="Screenshot 2025-07-23 at 11 05 25 AM" src="https://github.com/user-attachments/assets/55b1729f-ad07-420e-a271-843266abfb71" />
+### Solution Accelerators
+
+| Project | Description |
+|---------|-------------|
+| [xsd-to-synthetic](solution-accelerators/xsd-to-synthetic/) | Generate synthetic data from XSD schemas using PySpark |
+
+### Demos
+
+*No demos yet. Use `demos/_template/` to create one.*
+
+## Installation
+
+1. Clone the project into your Databricks Workspace
 
 2. Open the Asset Bundle Editor in the Databricks UI
 
-<img width="1120" height="665" alt="Screenshot 2025-07-23 at 11 06 12 AM" src="https://github.com/user-attachments/assets/d1f91256-eb8f-4456-8d88-c0a37b1bd4c5" />
+3. Click "Deploy"
 
-3. Click on "Deploy"
+4. Navigate to the Deployments tab and click "Run" on the available job
 
-<img width="1523" height="902" alt="Screenshot 2025-07-23 at 11 09 37 AM" src="https://github.com/user-attachments/assets/9564cbdd-c5c5-4210-bf27-2b19e6efc85b" />
+See [docs/getting-started.md](docs/getting-started.md) for detailed setup instructions.
 
-4. Navigate to the Deployments tab in the Asset Bundle UI (🚀 icon) and click "Run" on the job available. This will run the notebooks from this project sequentially.
+## Repository Structure
 
-<img width="1527" height="880" alt="Screenshot 2025-07-23 at 11 10 13 AM" src="https://github.com/user-attachments/assets/0f612882-7123-449b-8349-1835bc59523c" />
+```
+.
+├── solution-accelerators/   # Production-ready accelerators (with infra)
+├── demos/                   # Lightweight demos (no infra)
+├── shared/                  # Shared code across projects
+├── docs/                    # Repository documentation
+└── .github/workflows/       # CI/CD with path-filtered triggers
+```
+
+## Documentation
+
+- [Getting Started](docs/getting-started.md) - Setup and creating new projects
+- [Project Structure](docs/project-structure.md) - Directory layout and conventions
+- [Branching Strategy](docs/branching-strategy.md) - `projectname/feature` workflow
 
 ## Contributing
 
 1. **git clone** this project locally
-2. Utilize the Databricks CLI to test your changes against a Databricks workspace of your choice
-3. Contribute to repositories with pull requests (PRs), ensuring that you always have a second-party review from a capable teammate
+2. Create a branch: `<project-name>/<feature>`
+3. Utilize the Databricks CLI to test your changes
+4. Submit PRs with peer review from a capable teammate
 
+See [docs/branching-strategy.md](docs/branching-strategy.md) for details.
 
-## 📄 Third-Party Package Licenses - FILL IN WITH YOUR PROJECT'S OPEN SOURCE PACKAGES + LICENSING
+## Third-Party Package Licenses
 
 &copy; 2025 Databricks, Inc. All rights reserved. The source in this project is provided subject to the Databricks License [https://databricks.com/db-license-source]. All included or referenced third party libraries are subject to the licenses set forth below.
 
 | Package | License | Copyright |
 |---------|---------|-----------|
-| | | |
+| Apache Spark | Apache 2.0 | Apache Software Foundation |
+| xmlschema | MIT | Davide Brunato |
+| dbldatagen | Databricks | Databricks, Inc. |
+| Faker | MIT | Daniele Faraglia |
+| ruff | MIT | Astral Software Inc. |
+| pytest | MIT | Holger Krekel and others |

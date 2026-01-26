@@ -1,0 +1,44 @@
+name: Deploy Databricks Asset Bundles
+
+on:
+  workflow_call:
+    inputs:
+      project_path:
+        required: true
+        type: string
+        description: "Path to the project directory"
+      environment:
+        required: true
+        type: string
+        description: "Target environment (dev, staging, prod)"
+    secrets:
+      DATABRICKS_HOST:
+        required: true
+      DATABRICKS_TOKEN:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.project_path }}
+
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Validate bundle
+        run: databricks bundle validate -t ${{ inputs.environment }}
+        working-directory: ${{ inputs.project_path }}/asset-bundles
+
+      - name: Deploy bundle
+        run: databricks bundle deploy -t ${{ inputs.environment }}
+        working-directory: ${{ inputs.project_path }}/asset-bundles

@@ -24,4 +24,28 @@ build/
 
 # Environment files
 .env
-.env.local 
+.env.local
+.env.*
+!env.example
+
+# Virtual environments
+.venv/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Archives
+*.zip
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+!*.tfvars.example
+
+# uv
+uv.lock

@@ -1,0 +1,39 @@
+[project]
+name = "xsd-to-synthetic"
+version = "3.0.0"
+description = "Generate synthetic data from XSD schemas using PySpark"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+keywords = ["xsd", "synthetic-data", "pyspark", "databricks", "irs", "xml-schema"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.urls]
+Homepage = "https://github.com/databricks/xsd-to-synthetic"
+Repository = "https://github.com/databricks/xsd-to-synthetic"
+Issues = "https://github.com/databricks/xsd-to-synthetic/issues"
+dependencies = [
+    "xmlschema>=2.0.0",
+    "pyspark>=3.5.0",
+    "dbldatagen>=0.3.0",
+    "faker>=18.0.0",
+    "rstr>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
