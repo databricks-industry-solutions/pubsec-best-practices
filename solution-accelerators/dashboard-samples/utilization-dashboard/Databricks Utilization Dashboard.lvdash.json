@@ -1,0 +1,3008 @@
+{
+  "datasets": [
+    {
+      "name": "55341bda",
+      "displayName": "User Engagement Summary Report",
+      "queryLines": [
+        "SELECT \n",
+        "    user_identity AS user_name,\n",
+        "    COUNT(*) AS activity_count,\n",
+        "    MAX(event_time) AS last_activity_time\n",
+        "FROM \n",
+        "    system.access.audit\n",
+        "WHERE \n",
+        "    --action_name IN ('LOGIN', 'RUN_NOTEBOOK', 'SUBMIT_JOB')\n",
+        "GROUP BY \n",
+        "    user_identity\n",
+        "ORDER BY \n",
+        "    activity_count DESC;"
+      ]
+    },
+    {
+      "name": "f0c3db6c",
+      "displayName": "audit",
+      "queryLines": [
+        "SELECT * FROM system.access.audit"
+      ]
+    },
+    {
+      "name": "c8aa7f49",
+      "displayName": "table_lineage",
+      "queryLines": [
+        "SELECT * FROM system.access.table_lineage"
+      ]
+    },
+    {
+      "name": "1dd8a9ae",
+      "displayName": "usage",
+      "queryLines": [
+        "SELECT * FROM system.billing.usage"
+      ]
+    },
+    {
+      "name": "9b2bf763",
+      "displayName": "clusters",
+      "queryLines": [
+        "SELECT * FROM system.compute.clusters"
+      ]
+    },
+    {
+      "name": "9d8fe47c",
+      "displayName": "warehouse_events",
+      "queryLines": [
+        "SELECT * FROM system.compute.warehouse_events"
+      ]
+    },
+    {
+      "name": "09c56fac",
+      "displayName": "job_run_timeline",
+      "queryLines": [
+        "SELECT * FROM system.lakeflow.job_run_timeline"
+      ]
+    },
+    {
+      "name": "460fdc26",
+      "displayName": "job_tasks",
+      "queryLines": [
+        "SELECT * FROM system.lakeflow.job_tasks"
+      ]
+    },
+    {
+      "name": "af42230e",
+      "displayName": "jobs",
+      "queryLines": [
+        "SELECT * FROM system.lakeflow.jobs"
+      ]
+    },
+    {
+      "name": "7ab9af87",
+      "displayName": "pipelines",
+      "queryLines": [
+        "SELECT * FROM system.lakeflow.pipelines"
+      ]
+    },
+    {
+      "name": "4a1a1886",
+      "displayName": "pipeline_update_timeline",
+      "queryLines": [
+        "SELECT * FROM system.lakeflow.pipeline_update_timeline"
+      ]
+    },
+    {
+      "name": "ccbb29ee",
+      "displayName": "history",
+      "queryLines": [
+        "--SELECT count(*) FROM system.query.history\n",
+        "--15592\n",
+        "\n",
+        "SELECT * FROM system.query.history"
+      ]
+    },
+    {
+      "name": "9f06ec90",
+      "displayName": "system_observe_dau_detail",
+      "queryLines": [
+        "SELECT \n",
+        "    DATE_TRUNC('day', event_time) AS date, \n",
+        "    action_name,\n",
+        "    user_identity.email AS distinct_user\n",
+        "FROM \n",
+        "    system.access.audit\n",
+        "WHERE \n",
+        "    event_time >= DATEADD(month, -12, CURRENT_DATE)\n",
+        "    --AND action_name IN ('tokenLogin')\n",
+        "    --AND user_identity.email LIKE '%katsantonis%'\n",
+        "GROUP BY \n",
+        "    DATE_TRUNC('day', event_time),\n",
+        "    action_name,\n",
+        "    user_identity.email\n",
+        "ORDER BY \n",
+        "    date; "
+      ]
+    },
+    {
+      "name": "bdff3c9d",
+      "displayName": "v_activity",
+      "queryLines": [
+        " SELECT * FROM viz_team.dbrx_metrics.v_activity;\n",
+        "\n",
+        "--SELECT compute_source, client_application, count(*) num_of_records\n",
+        "--FROM viz_team.dbrx_metrics.v_activity\n",
+        "--GROUP BY compute_source, client_application\n",
+        "--ORDER BY compute_source, client_application;"
+      ]
+    },
+    {
+      "name": "a35a5d9e",
+      "displayName": "query_history_mau",
+      "queryLines": [
+        "SELECT\n",
+        "  usage_month,\n",
+        "  COUNT(DISTINCT user_id) AS MAU\n",
+        "FROM viz_team.dbrx_metrics.v_activity\n",
+        "GROUP BY usage_month\n",
+        "ORDER BY usage_month DESC; "
+      ]
+    },
+    {
+      "name": "57965c17",
+      "displayName": "query_history_mau_trend",
+      "queryLines": [
+        "WITH MONTHLY AS (\n",
+        "  SELECT\n",
+        "    date_trunc('month', usage_date) as usage_month,\n",
+        "    COUNT(DISTINCT user_id) AS MAU\n",
+        "  FROM viz_team.dbrx_metrics.v_activity\n",
+        "  GROUP BY date_trunc('month', usage_date)\n",
+        ")\n",
+        "SELECT\n",
+        " date_part('month', usage_month) month_used,\n",
+        " mau,\n",
+        " LAG(mau) OVER ( ORDER BY usage_month) AS prev_mau,\n",
+        " mau - LAG(mau) OVER ( ORDER BY usage_month) AS net_change,\n",
+        " CASE \n",
+        "  WHEN LAG(mau) OVER ( ORDER BY usage_month) IS NULL THEN NULL\n",
+        "  WHEN mau > LAG(mau) OVER ( ORDER BY usage_month) THEN 'Increased'\n",
+        "  WHEN mau < LAG(mau) OVER ( ORDER BY usage_month) THEN 'Decreased'\n",
+        "  ELSE 'No Change'\n",
+        "END AS direction,\n",
+        "CASE \n",
+        "  WHEN LAG(mau) OVER (ORDER BY usage_month) IS NULL OR LAG(mau) OVER ( ORDER BY usage_month) = 0 THEN NULL  \n",
+        "  ELSE ROUND(100.0 * (mau - LAG(mau) OVER ( ORDER BY usage_month)) / LAG(mau) OVER (ORDER BY usage_month), 2)\n",
+        "END AS pct_change\n",
+        "FROM monthly\n",
+        "ORDER BY usage_month DESC; "
+      ]
+    },
+    {
+      "name": "a0f992bf",
+      "displayName": "audit",
+      "queryLines": [
+        "--SELECT * FROM system.access.audit\n",
+        "SELECT event_id, user_identity.email as user_id,service_name, action_name, event_date, workspace_id, source_ip_address \n",
+        "from system.access.audit\n",
+        "WHERE service_name not in ('syslog', 'monit', 'capsule8-alerts-dataplane')\n",
+        "\n"
+      ]
+    },
+    {
+      "name": "cf40b0ed",
+      "displayName": "system_observe_dau_workspace_detail",
+      "queryLines": [
+        "SELECT \n",
+        "    DATE_TRUNC('day', event_time) AS date, \n",
+        "    workspace_id,\n",
+        "    action_name,\n",
+        "    user_identity.email AS distinct_user\n",
+        "FROM \n",
+        "    system.access.audit\n",
+        "WHERE \n",
+        "    event_time >= DATEADD(month, -12, CURRENT_DATE)\n",
+        "    --AND action_name IN ('tokenLogin')\n",
+        "    --AND user_identity.email LIKE '%katsantonis%'\n",
+        "GROUP BY \n",
+        "    DATE_TRUNC('day', event_time),\n",
+        "    workspace_id,\n",
+        "    action_name,\n",
+        "   user_identity.email\n",
+        "ORDER BY \n",
+        "    date, distinct_user; "
+      ]
+    },
+    {
+      "name": "683e5c3f",
+      "displayName": "system_observe_billing_usage",
+      "queryLines": [
+        "SELECT \n",
+        "  usage.usage_date, \n",
+        "  usage.workspace_id,\n",
+        "  usage.sku_name, \n",
+        "  usage.billing_origin_product, \n",
+        "  usage.identity_metadata.owned_by, \n",
+        "  --custom_tags,\n",
+        "  clusters.cluster_name,\n",
+        "  usage.usage_unit,\n",
+        "  SUM(usage.usage_quantity) AS sum_usage_quantity\n",
+        "FROM \n",
+        "  system.billing.usage AS usage\n",
+        "LEFT JOIN\n",
+        "  system.compute.clusters AS clusters ON usage.usage_metadata.cluster_id = clusters.cluster_id\n",
+        "GROUP BY\n",
+        "  usage.usage_date, \n",
+        "  usage.workspace_id,\n",
+        "  usage.sku_name, \n",
+        "  usage.billing_origin_product, \n",
+        "  usage.identity_metadata.owned_by, \n",
+        "  --custom_tags,\n",
+        "  clusters.cluster_name,\n",
+        "  usage.usage_unit;\n",
+        "\n"
+      ]
+    },
+    {
+      "name": "ec8f6abb",
+      "displayName": "node_timeline",
+      "queryLines": [
+        "SELECT * FROM system.compute.node_timeline"
+      ]
+    },
+    {
+      "name": "529262b3",
+      "displayName": "node_types",
+      "queryLines": [
+        "SELECT * FROM system.compute.node_types"
+      ]
+    },
+    {
+      "name": "e341d078",
+      "displayName": "system_observe_dau_percent",
+      "queryLines": [
+        "\n",
+        "WITH first_activity AS (\n",
+        "  SELECT \n",
+        "    user_identity.email AS user_email,\n",
+        "    MIN(DATE_TRUNC('day', event_time)) AS first_date\n",
+        "  FROM \n",
+        "    system.access.audit\n",
+        "  GROUP BY \n",
+        "    user_identity.email\n",
+        "  ORDER BY\n",
+        "    first_date\n",
+        "), \n",
+        "\n",
+        "daily_new_users AS (\n",
+        "  SELECT \n",
+        "    first_date,\n",
+        "    COUNT(user_email) AS new_user_count\n",
+        "  FROM \n",
+        "    first_activity\n",
+        "  GROUP BY\n",
+        "    first_date\n",
+        "  ORDER BY \n",
+        "    first_date\n",
+        ")\n",
+        "\n",
+        "SELECT \n",
+        "  SUM(new_user_count) OVER (ORDER BY first_date) AS total_cumulative_users\n",
+        "FROM daily_new_users\n",
+        "ORDER BY first_date;\n",
+        "\n",
+        "\n",
+        "\n",
+        "----NEW\n",
+        "\n",
+        "WITH first_activity AS (\n",
+        "  SELECT \n",
+        "    user_identity.email AS user_email,\n",
+        "    MIN(DATE_TRUNC('day', event_time)) AS first_date\n",
+        "  FROM \n",
+        "    system.access.audit\n",
+        "  GROUP BY \n",
+        "    user_identity.email\n",
+        "), \n",
+        "\n",
+        "daily_new_users AS (\n",
+        "  SELECT \n",
+        "    first_date,\n",
+        "    COUNT(user_email) AS new_user_count\n",
+        "  FROM \n",
+        "    first_activity\n",
+        "  GROUP BY\n",
+        "    first_date\n",
+        "),\n",
+        "\n",
+        "cumulative_users AS (\n",
+        "  SELECT \n",
+        "    first_date,\n",
+        "    SUM(new_user_count) OVER (ORDER BY first_date) AS total_cumulative_users\n",
+        "  FROM \n",
+        "    daily_new_users\n",
+        "),\n",
+        "\n",
+        "daily_distinct_logins AS (\n",
+        "  SELECT \n",
+        "    DATE_TRUNC('day', event_time) AS login_date,\n",
+        "    COUNT(DISTINCT user_identity.email) AS distinct_user_logins\n",
+        "  FROM \n",
+        "    system.access.audit\n",
+        "  GROUP BY \n",
+        "    DATE_TRUNC('day', event_time)\n",
+        ")\n",
+        "\n",
+        "SELECT \n",
+        "  c.first_date AS date,\n",
+        "  c.total_cumulative_users,\n",
+        "  COALESCE(d.distinct_user_logins, 0) AS daily_distinct_user_logins,\n",
+        "  ROUND(\n",
+        "    COALESCE(d.distinct_user_logins, 0) * 100.0 / c.total_cumulative_users, \n",
+        "    2\n",
+        "  ) AS login_percentage\n",
+        "FROM \n",
+        "  cumulative_users c\n",
+        "LEFT JOIN \n",
+        "  daily_distinct_logins d\n",
+        "ON \n",
+        "  c.first_date = d.login_date\n",
+        "ORDER BY \n",
+        "  c.first_date;"
+      ]
+    },
+    {
+      "name": "55f3fbe3",
+      "displayName": "clusters_usage_in_dbus",
+      "queryLines": [
+        "--Clusters Usge in DBUs\n",
+        "SELECT \n",
+        "   c.cluster_name,\n",
+        "   u.usage_quantity as DBUs\n",
+        "FROM system.billing.usage u\n",
+        "inner join system.compute.clusters c\n",
+        " on u.workspace_id=c.workspace_id\n",
+        " order by DBUs desc;"
+      ]
+    },
+    {
+      "name": "0a4f307c",
+      "displayName": "clusters_autoscaling_nodes_counts",
+      "queryLines": [
+        "--Cluster Worker Nodes Count and Autoscaling Nodes\n",
+        "SELECT \n",
+        "    cluster_id,\n",
+        "    cluster_name,\n",
+        "    worker_count as Worker_Nodes_Count,\n",
+        "    min_autoscale_workers as Min_Nodes,\n",
+        "    max_autoscale_workers Max_Nodes \n",
+        "FROM system.compute.clusters; --306"
+      ]
+    },
+    {
+      "name": "1a89e296",
+      "displayName": "warehouse_events",
+      "queryLines": [
+        "SELECT \n",
+        "  we.workspace_id,\n",
+        "  we.warehouse_id,\n",
+        "  we.event_time,\n",
+        "  timestampdiff('MINUTE', we.event_time, current_timestamp()) / 60.0 AS running_hours,\n",
+        "  we.cluster_count\n",
+        "FROM system.compute.warehouse_events we\n",
+        "WHERE we.event_type = 'RUNNING'\n",
+        "      AND NOT EXISTS (\n",
+        "        SELECT 1\n",
+        "        FROM compute.warehouse_events we2\n",
+        "        WHERE we2.warehouse_id = we warehouse_id\n",
+        "        AND we2.event_time > we event_time\n",
+        "      )\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "47ee39e0",
+      "displayName": "Active Users",
+      "layout": [
+        {
+          "widget": {
+            "name": "user-action-by-time",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "cf40b0ed",
+                  "fields": [
+                    {
+                      "name": "daily(date)",
+                      "expression": "DATE_TRUNC(\"DAY\", `date`)"
+                    },
+                    {
+                      "name": "distinct_user",
+                      "expression": "`distinct_user`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Distinct User Actions by Time"
+              },
+              "mark": {
+                "colors": [
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 3
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 2
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 3
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 4
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 6
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 7
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 8
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 9
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 10
+                  }
+                ]
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "daily(date)",
+                  "axis": {
+                    "title": "Date"
+                  },
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "distinct_user",
+                  "axis": {
+                    "title": "Distinct User"
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": false
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 13,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "distinct-users-by-date",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "cf40b0ed",
+                  "fields": [
+                    {
+                      "name": "weekly(date)",
+                      "expression": "DATE_TRUNC(\"WEEK\", `date`)"
+                    },
+                    {
+                      "name": "countdistinct(distinct_user)",
+                      "expression": "COUNT(DISTINCT `distinct_user`)"
+                    }
+                  ],
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "DESC",
+                      "expression": "DATE_TRUNC(\"WEEK\", `date`)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Count of Distinct Users by Week"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "countdistinct(distinct_user)"
+                },
+                "period": {
+                  "fieldName": "weekly(date)"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "3551caaf",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"font-size:24px\">Active User Tracking</span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "count-records-by-action",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "cf40b0ed",
+                  "fields": [
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    },
+                    {
+                      "name": "distinct_user",
+                      "expression": "`distinct_user`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Total Count of User Actions"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "distinct_user",
+                  "axis": {
+                    "hideTitle": false,
+                    "title": "Distinct User"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "categorySize": {
+                      "type": "number-of-categories",
+                      "number": 20
+                    },
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "count(*)",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "count(*)",
+                  "legend": {
+                    "hide": true
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "4d8e9a1b",
+            "queries": [
+              {
+                "name": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1005424961af5a40ec7f7fff7f234_distinct_user",
+                "query": {
+                  "datasetName": "9f06ec90",
+                  "fields": [
+                    {
+                      "name": "distinct_user",
+                      "expression": "`distinct_user`"
+                    },
+                    {
+                      "name": "distinct_user_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f10135380413fd9ade0f8a66b85f85_distinct_user",
+                "query": {
+                  "datasetName": "cf40b0ed",
+                  "fields": [
+                    {
+                      "name": "distinct_user",
+                      "expression": "`distinct_user`"
+                    },
+                    {
+                      "name": "distinct_user_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "distinct_user",
+                    "queryName": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1005424961af5a40ec7f7fff7f234_distinct_user"
+                  },
+                  {
+                    "fieldName": "distinct_user",
+                    "queryName": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f10135380413fd9ade0f8a66b85f85_distinct_user"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 1,
+            "width": 1,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "f842df93",
+            "queries": [
+              {
+                "name": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1005424961af5a40ec7f7fff7f234_date",
+                "query": {
+                  "datasetName": "9f06ec90",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "date",
+                    "queryName": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1005424961af5a40ec7f7fff7f234_date"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "db263b12",
+            "queries": [
+              {
+                "name": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1005424961af5a40ec7f7fff7f234_action_name",
+                "query": {
+                  "datasetName": "9f06ec90",
+                  "fields": [
+                    {
+                      "name": "action_name",
+                      "expression": "`action_name`"
+                    },
+                    {
+                      "name": "action_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f10135380413fd9ade0f8a66b85f85_action_name",
+                "query": {
+                  "datasetName": "cf40b0ed",
+                  "fields": [
+                    {
+                      "name": "action_name",
+                      "expression": "`action_name`"
+                    },
+                    {
+                      "name": "action_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "action_name",
+                    "queryName": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1005424961af5a40ec7f7fff7f234_action_name"
+                  },
+                  {
+                    "fieldName": "action_name",
+                    "queryName": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f10135380413fd9ade0f8a66b85f85_action_name"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true
+              },
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "tokenLogin"
+                      }
+                    ]
+                  }
+                }
+              },
+              "disallowAll": false
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "user-actions-count-by-workspace",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "cf40b0ed",
+                  "fields": [
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    },
+                    {
+                      "name": "weekly(date)",
+                      "expression": "DATE_TRUNC(\"WEEK\", `date`)"
+                    },
+                    {
+                      "name": "count(action_name)",
+                      "expression": "COUNT(`action_name`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Count of User Actions by Workspace"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "weekly(date)",
+                  "axis": {
+                    "hideTitle": false,
+                    "title": "Date"
+                  },
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(action_name)",
+                  "axis": {
+                    "title": "Action Name"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "workspace_id",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "e1802ab1",
+            "queries": [
+              {
+                "name": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f10135380413fd9ade0f8a66b85f85_workspace_id",
+                "query": {
+                  "datasetName": "cf40b0ed",
+                  "fields": [
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    },
+                    {
+                      "name": "workspace_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "workspace_id",
+                    "queryName": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f10135380413fd9ade0f8a66b85f85_workspace_id"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 1,
+            "width": 1,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "percent-dau-by-total-users",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "e341d078",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "daily_distinct_user_logins",
+                      "expression": "`daily_distinct_user_logins`"
+                    },
+                    {
+                      "name": "total_cumulative_users",
+                      "expression": "`total_cumulative_users`"
+                    },
+                    {
+                      "name": "login_percentage",
+                      "expression": "`login_percentage`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "frame": {
+                "showTitle": true,
+                "title": "Percent of DAU to Total Users"
+              },
+              "mark": {
+                "colors": [
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 1
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 9
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 2
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 4
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 6
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 7
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 8
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 9
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 10
+                  }
+                ]
+              },
+              "widgetType": "combo",
+              "encodings": {
+                "x": {
+                  "fieldName": "date",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": false
+                },
+                "y": {
+                  "primary": {
+                    "fields": [
+                      {
+                        "fieldName": "daily_distinct_user_logins",
+                        "displayName": "Daily Distinct User Logins"
+                      },
+                      {
+                        "fieldName": "total_cumulative_users",
+                        "displayName": "Cumulative User Logins"
+                      }
+                    ],
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "axis": {
+                      "title": "Count of Users"
+                    }
+                  },
+                  "secondary": {
+                    "fields": [
+                      {
+                        "fieldName": "login_percentage",
+                        "displayName": "Percent of Total Users"
+                      }
+                    ],
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "axis": {
+                      "title": "Percent of Total Users"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 20,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "f95c6227",
+      "displayName": "Global Filters",
+      "layout": [
+        {
+          "widget": {
+            "name": "2dead2fe",
+            "queries": [
+              {
+                "name": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1005424961af5a40ec7f7fff7f234_date",
+                "query": {
+                  "datasetName": "9f06ec90",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "date",
+                    "queryName": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1005424961af5a40ec7f7fff7f234_date"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "62790ca1",
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": []
+              },
+              "frame": {
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "0ac2c7be",
+            "queries": [
+              {
+                "name": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f10078a0231a5b804d826bef797810_workspace_id",
+                "query": {
+                  "datasetName": "bdff3c9d",
+                  "fields": [
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    },
+                    {
+                      "name": "workspace_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "workspace_id",
+                    "queryName": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f10078a0231a5b804d826bef797810_workspace_id"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 1,
+            "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS"
+    },
+    {
+      "name": "b8ad9337",
+      "displayName": "Usage Tracking",
+      "layout": [
+        {
+          "widget": {
+            "name": "query-activity-over-time",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "bdff3c9d",
+                  "fields": [
+                    {
+                      "name": "client_application",
+                      "expression": "`client_application`"
+                    },
+                    {
+                      "name": "weekly(usage_date)",
+                      "expression": "DATE_TRUNC(\"WEEK\", `usage_date`)"
+                    },
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Query Activity Over Time"
+              },
+              "mark": {
+                "colors": [
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 2
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 3
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 4
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 6
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 7
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 8
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 9
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 10
+                  }
+                ]
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "weekly(usage_date)",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(*)",
+                  "axis": {
+                    "title": "Query Count"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "client_application",
+                  "displayName": "App Used for Query",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 29,
+            "width": 4,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "query-count-compute-type",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "bdff3c9d",
+                  "fields": [
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    },
+                    {
+                      "name": "compute_source",
+                      "expression": "`compute_source`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Query Count by Compute Type"
+              },
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "count(*)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "hideTitle": true
+                  }
+                },
+                "color": {
+                  "fieldName": "compute_source",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "WAREHOUSE",
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 7
+                        }
+                      },
+                      {
+                        "value": "SERVERLESS_COMPUTE",
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 9
+                        }
+                      },
+                      {
+                        "value": "CLASSIC_COMPUTE",
+                        "color": {
+                          "themeColorType": "fontColor"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 29,
+            "width": 2,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "32e22fac",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"font-size:24px\">DBU Consumption</span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "c8574fe8",
+            "queries": [
+              {
+                "name": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1013f7595139f974acf68d216564f_usage_date",
+                "query": {
+                  "datasetName": "683e5c3f",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "usage_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true
+              },
+              "selection": {
+                "defaultSelection": {
+                  "range": {
+                    "dataType": "DATE",
+                    "min": {
+                      "value": "now-90d/d"
+                    },
+                    "max": {
+                      "value": "now/d"
+                    }
+                  }
+                }
+              },
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "usage_date",
+                    "queryName": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1013f7595139f974acf68d216564f_usage_date"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "698dbc42",
+            "queries": [
+              {
+                "name": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1013f7595139f974acf68d216564f_workspace_id",
+                "query": {
+                  "datasetName": "683e5c3f",
+                  "fields": [
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    },
+                    {
+                      "name": "workspace_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "workspace_id",
+                    "queryName": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1013f7595139f974acf68d216564f_workspace_id"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "a556be82",
+            "queries": [
+              {
+                "name": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1013f7595139f974acf68d216564f_owned_by",
+                "query": {
+                  "datasetName": "683e5c3f",
+                  "fields": [
+                    {
+                      "name": "owned_by",
+                      "expression": "`owned_by`"
+                    },
+                    {
+                      "name": "owned_by_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "owned_by",
+                    "queryName": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f1013f7595139f974acf68d216564f_owned_by"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "dbu-by-sku-log-scale",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "683e5c3f",
+                  "fields": [
+                    {
+                      "name": "billing_origin_product",
+                      "expression": "`billing_origin_product`"
+                    },
+                    {
+                      "name": "sku_name",
+                      "expression": "`sku_name`"
+                    },
+                    {
+                      "name": "sum_usage_quantity",
+                      "expression": "`sum_usage_quantity`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "DBU Use by SKU"
+              },
+              "mark": {
+                "layout": "stack"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sku_name",
+                  "displayName": "SKU Name",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "sum_usage_quantity",
+                  "axis": {
+                    "title": "DBU Use Quantity (log)"
+                  },
+                  "scale": {
+                    "type": "quantitative",
+                    "fn": {
+                      "type": "symlog"
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "billing_origin_product",
+                  "displayName": "Billing Product",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 4,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "dbu-by-workspace",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "683e5c3f",
+                  "fields": [
+                    {
+                      "name": "sum_usage_quantity",
+                      "expression": "`sum_usage_quantity`"
+                    },
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "IN_RANGE(`sum_usage_quantity`, NULL, NULL)"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "DBU Use by Workspace"
+              },
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "sum_usage_quantity",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "hideTitle": true
+                  }
+                },
+                "color": {
+                  "fieldName": "workspace_id",
+                  "legend": {
+                    "hide": false
+                  },
+                  "displayName": "Workspace Id",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "natural-order"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 2,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "7744ba87",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"font-size: 24px;\">Query Activity</span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 28,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "dbu-by-owner",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "683e5c3f",
+                  "fields": [
+                    {
+                      "name": "billing_origin_product",
+                      "expression": "`billing_origin_product`"
+                    },
+                    {
+                      "name": "owned_by",
+                      "expression": "`owned_by`"
+                    },
+                    {
+                      "name": "sum_usage_quantity",
+                      "expression": "`sum_usage_quantity`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "DBU Use by Owner Tag"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "owned_by",
+                  "axis": {
+                    "title": "Owner Tag"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "sum_usage_quantity",
+                  "axis": {
+                    "title": "DBU Use Quantity (log)"
+                  },
+                  "scale": {
+                    "type": "quantitative",
+                    "fn": {
+                      "type": "symlog"
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "billing_origin_product",
+                  "displayName": "Billing Product",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "dbu-workspace-time-1",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "683e5c3f",
+                  "fields": [
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    },
+                    {
+                      "name": "weekly(usage_date)",
+                      "expression": "DATE_TRUNC(\"WEEK\", `usage_date`)"
+                    },
+                    {
+                      "name": "sum(sum_usage_quantity)",
+                      "expression": "SUM(`sum_usage_quantity`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "DBU Use by Workspace Over Time"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "weekly(usage_date)",
+                  "axis": {
+                    "title": "DBU Use Date"
+                  },
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(sum_usage_quantity)",
+                  "displayName": "DBU Use Quantity",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "workspace_id",
+                  "displayName": "Workspace Id",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 16,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "dbu-by-cluster",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "683e5c3f",
+                  "fields": [
+                    {
+                      "name": "cluster_name",
+                      "expression": "`cluster_name`"
+                    },
+                    {
+                      "name": "weekly(usage_date)",
+                      "expression": "DATE_TRUNC(\"WEEK\", `usage_date`)"
+                    },
+                    {
+                      "name": "sum_usage_quantity",
+                      "expression": "`sum_usage_quantity`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "DBU Use Percent by Cluster"
+              },
+              "mark": {
+                "layout": "percent-stack"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "weekly(usage_date)",
+                  "displayName": "DBU Use Date",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum_usage_quantity",
+                  "displayName": "DBU Use",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "cluster_name",
+                  "displayName": "Cluser Used for DBUs",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 22,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "1a5780eb",
+      "displayName": "Usage Audit",
+      "layout": [
+        {
+          "widget": {
+            "name": "91cfcfb0",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a0f992bf",
+                  "fields": [
+                    {
+                      "name": "service_name",
+                      "expression": "`service_name`"
+                    },
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "mark": {
+                "colors": [
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 7
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 2
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 3
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 4
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 6
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 7
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 8
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 9
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 10
+                  }
+                ]
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "service_name",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "count(*)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "89e015b5",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a0f992bf",
+                  "fields": [
+                    {
+                      "name": "action_name",
+                      "expression": "`action_name`"
+                    },
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "action_name",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "count(*)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "29903513",
+      "displayName": "Jobs Usage",
+      "layout": [
+        {
+          "widget": {
+            "name": "daae052c",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "af42230e",
+                  "fields": [
+                    {
+                      "name": "workspace_id",
+                      "expression": "`workspace_id`"
+                    },
+                    {
+                      "name": "monthly(create_time)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `create_time`)"
+                    },
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(create_time)",
+                  "displayName": "Jobs created over a period of Time",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(*)",
+                  "displayName": "Number of Jobs",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "workspace_id",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "mark": {
+                "colors": [
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 2
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 3
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 4
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 6
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 7
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 8
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 9
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 10
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "26fef6b4",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "1dd8a9ae",
+                  "fields": [
+                    {
+                      "name": "billing_origin_product",
+                      "expression": "`billing_origin_product`"
+                    },
+                    {
+                      "name": "monthly(usage_date)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `usage_date`)"
+                    },
+                    {
+                      "name": "sum(usage_quantity)",
+                      "expression": "SUM(`usage_quantity`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(usage_date)",
+                  "displayName": "Cluster Usage over a Period of Time",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(usage_quantity)",
+                  "displayName": "Number of cluster usage in DBUs",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "billing_origin_product",
+                  "displayName": "Type of Product",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 27,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "7b28d72c",
+            "queries": [
+              {
+                "name": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f10078a0231a5b804d826bef797810_compute_source",
+                "query": {
+                  "datasetName": "bdff3c9d",
+                  "fields": [
+                    {
+                      "name": "compute_source",
+                      "expression": "`compute_source`"
+                    },
+                    {
+                      "name": "compute_source_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "compute_source",
+                    "queryName": "dashboards/01f0fde28d8d1039a962c64547ff2151/datasets/01f10078a0231a5b804d826bef797810_compute_source"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 1,
+            "width": 4,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "pipeline-creation-timeline",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7ab9af87",
+                  "fields": [
+                    {
+                      "name": "monthly(create_time)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `create_time`)"
+                    },
+                    {
+                      "name": "name",
+                      "expression": "`name`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Pipeline Creation Timeline",
+                "showTitle": true
+              },
+              "widgetType": "scatter",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(create_time)",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "name",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 34,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "pipeline-types-distribution",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7ab9af87",
+                  "fields": [
+                    {
+                      "name": "count(pipeline_id)",
+                      "expression": "COUNT(`pipeline_id`)"
+                    },
+                    {
+                      "name": "pipeline_type",
+                      "expression": "`pipeline_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Pipeline Types Distribution",
+                "showTitle": true
+              },
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "count(pipeline_id)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Count of pipelines"
+                },
+                "color": {
+                  "fieldName": "pipeline_type",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "ETL_PIPELINE",
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 5
+                        }
+                      },
+                      {
+                        "value": "INGESTION_PIPELINE",
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 9
+                        }
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 40,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "pipeline-tags-overview",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7ab9af87",
+                  "fields": [
+                    {
+                      "name": "pipeline_type",
+                      "expression": "`pipeline_type`"
+                    },
+                    {
+                      "name": "created_by",
+                      "expression": "`created_by`"
+                    },
+                    {
+                      "name": "count(pipeline_id)",
+                      "expression": "COUNT(`pipeline_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Top 10 Pipeline Creators",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "created_by",
+                  "displayName": "Created By",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "count(pipeline_id)",
+                  "displayName": "Number of Pipelines",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "pipeline_type",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "ETL_PIPELINE",
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 5
+                        }
+                      },
+                      {
+                        "value": "INGESTION_PIPELINE",
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 9
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 46,
+            "width": 6,
+            "height": 10
+          }
+        },
+        {
+          "widget": {
+            "name": "run-duration-distribution",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "09c56fac",
+                  "fields": [
+                    {
+                      "name": "execution_duration_seconds",
+                      "expression": "`execution_duration_seconds`"
+                    },
+                    {
+                      "name": "run_duration_seconds",
+                      "expression": "`run_duration_seconds`"
+                    },
+                    {
+                      "name": "job_id",
+                      "expression": "`job_id`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Run Duration Distribution",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "run_duration_seconds",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "job_id",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "x-reversed"
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "execution_duration_seconds",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 21,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "job-count-by-creator",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "af42230e",
+                  "fields": [
+                    {
+                      "name": "countdistinct(job_id)",
+                      "expression": "COUNT(DISTINCT `job_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Job Count by Creator",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "countdistinct(job_id)"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 2,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "job-creation-timeline-1",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "af42230e",
+                  "fields": [
+                    {
+                      "name": "trigger_type",
+                      "expression": "`trigger_type`"
+                    },
+                    {
+                      "name": "count(job_id)",
+                      "expression": "COUNT(`job_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Jobs by Trigger Type",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "trigger_type",
+                  "displayName": "Trigger Type",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "count(job_id)",
+                  "displayName": "Number of Jobs",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 4,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "result-states-distribution-1",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a1a1886",
+                  "fields": [
+                    {
+                      "name": "count(result_state)",
+                      "expression": "COUNT(`result_state`)"
+                    },
+                    {
+                      "name": "result_state",
+                      "expression": "`result_state`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Result States Distribution",
+                "showTitle": true
+              },
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "count(result_state)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "result_state",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "COMPLETED",
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 5
+                        }
+                      },
+                      {
+                        "value": "FAILED",
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 9
+                        }
+                      },
+                      {
+                        "value": "CANCELED",
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 7
+                        }
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 15,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "fb5cbee0",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"font-size: 18px;\">**Job Run Metrics**</span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 14,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "1970373f",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"font-size: 18px;\">**Jobs Created Metrics**</span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "setup-duration-compute",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "09c56fac",
+                  "fields": [
+                    {
+                      "name": "count(result_state)",
+                      "expression": "COUNT(`result_state`)"
+                    },
+                    {
+                      "name": "result_state",
+                      "expression": "`result_state`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Result State Proportions",
+                "showTitle": true
+              },
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "count(result_state)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "result_state",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 15,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "3d86e7ae",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"font-size: 18px;\">**Pipeline Metrics**</span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 33,
+            "width": 6,
+            "height": 1
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "2df1db64",
+      "displayName": "Cluster Usage",
+      "layout": [
+        {
+          "widget": {
+            "name": "usage-quantity-by-cluster",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "55f3fbe3",
+                  "fields": [
+                    {
+                      "name": "cluster_name",
+                      "expression": "`cluster_name`"
+                    },
+                    {
+                      "name": "DBUs",
+                      "expression": "`DBUs`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Cluster Usage in DBUs",
+                "showTitle": true,
+                "showDescription": false
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "cluster_name",
+                  "scale": {
+                    "type": "categorical",
+                    "categorySize": {
+                      "type": "number-of-categories",
+                      "number": 20
+                    },
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "DBUs",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "clusters-nodes-counts-autoscaling",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "0a4f307c",
+                  "fields": [
+                    {
+                      "name": "cluster_name",
+                      "expression": "`cluster_name`"
+                    },
+                    {
+                      "name": "Worker_Nodes_Count",
+                      "expression": "`Worker_Nodes_Count`"
+                    },
+                    {
+                      "name": "Max_Nodes",
+                      "expression": "`Max_Nodes`"
+                    },
+                    {
+                      "name": "Min_Nodes",
+                      "expression": "`Min_Nodes`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Clusters Nodes counts in Autoscaling "
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "cluster_name",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "Worker_Nodes_Count"
+                    },
+                    {
+                      "fieldName": "Max_Nodes"
+                    },
+                    {
+                      "fieldName": "Min_Nodes"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 6,
+            "height": 8
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}
