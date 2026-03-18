@@ -1,0 +1,231 @@
+apiVersion: v3.0.0
+kind: DataContract
+
+id: curated-orders-dq-demo-001
+status: active
+name: Curated Orders Data Contract
+version: 1.0.0
+tenant: field-engineering-demos
+domain: ecommerce
+
+description:
+  purpose: >
+    Governs the curated_orders table which combines raw order transactions
+    with enriched customer and product dimensions. This contract defines the
+    schema, business rules, and data quality expectations that must be satisfied
+    before data is consumed by downstream analytics and reporting.
+  usage: >
+    Analytical reporting, revenue dashboards, customer 360, order fulfilment KPIs.
+
+owner:
+  name: Data Engineering Team
+  email: data-eng@example.com
+  team: Platform Engineering
+
+tags:
+  - ecommerce
+  - orders
+  - curated
+  - dq-demo
+
+schema:
+  - name: curated_orders
+    physicalName: curated_orders
+    description: Enriched order-level table joining orders, customers, and products.
+    tags:
+      - orders
+      - enriched
+
+    columns:
+      - name: order_id
+        businessName: Order Identifier
+        logicalType: string
+        physicalType: string
+        isNullable: false
+        isUnique: true
+        description: Globally unique order identifier in format ORD-NNNNN.
+        quality:
+          - rule: not_null
+            description: Every order must have an order ID.
+          - rule: unique
+            description: No two orders can share the same ID.
+          - rule: regex_match
+            pattern: "^ORD-[0-9]{5}$"
+            description: Must match format ORD-NNNNN.
+
+      - name: customer_id
+        businessName: Customer Identifier
+        logicalType: string
+        physicalType: string
+        isNullable: false
+        description: Reference to the customer who placed the order.
+        quality:
+          - rule: not_null
+            description: Every order must be linked to a customer.
+
+      - name: customer_name
+        businessName: Customer Name
+        logicalType: string
+        physicalType: string
+        isNullable: false
+        description: Full name of the customer.
+        quality:
+          - rule: not_null_and_not_empty
+            description: Customer name must be populated.
+
+      - name: customer_email
+        businessName: Customer Email
+        logicalType: string
+        physicalType: string
+        isNullable: true
+        description: Customer contact email.
+        quality:
+          - rule: regex_match
+            pattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+            description: When present, must be a valid email format.
+            criticality: warn
+
+      - name: product_id
+        businessName: Product Identifier
+        logicalType: string
+        physicalType: string
+        isNullable: false
+        description: Reference to the ordered product.
+        quality:
+          - rule: not_null
+            description: Every order must reference a product.
+
+      - name: product_name
+        businessName: Product Name
+        logicalType: string
+        physicalType: string
+        isNullable: false
+        description: Name of the product at time of order.
+        quality:
+          - rule: not_null_and_not_empty
+            description: Product name must be populated.
+
+      - name: product_category
+        businessName: Product Category
+        logicalType: string
+        physicalType: string
+        isNullable: true
+        description: Category of the product.
+        quality:
+          - rule: value_in_set
+            allowedValues:
+              - Electronics
+              - Clothing
+              - Home & Garden
+              - Sports
+              - Books
+              - Toys
+            description: Category must be one of the approved taxonomy values.
+            criticality: warn
+
+      - name: order_date
+        businessName: Order Date
+        logicalType: date
+        physicalType: date
+        isNullable: false
+        description: Date the order was placed (UTC).
+        quality:
+          - rule: not_null
+            description: Every order must have a date.
+          - rule: is_in_range
+            minValue: "2020-01-01"
+            maxValue: "today"
+            description: Order date must be between 2020-01-01 and today.
+
+      - name: quantity
+        businessName: Order Quantity
+        logicalType: integer
+        physicalType: integer
+        isNullable: false
+        description: Number of units ordered.
+        quality:
+          - rule: not_null
+            description: Quantity must be provided.
+          - rule: is_in_range
+            minValue: 1
+            maxValue: 1000
+            description: Quantity must be between 1 and 1000 inclusive.
+
+      - name: unit_price
+        businessName: Unit Price (USD)
+        logicalType: double
+        physicalType: double
+        isNullable: false
+        description: Price per unit at time of order in USD.
+        quality:
+          - rule: not_null
+            description: Unit price must be provided.
+          - rule: is_in_range
+            minValue: 0.01
+            maxValue: 10000.00
+            description: Unit price must be between $0.01 and $10,000.
+
+      - name: total_amount
+        businessName: Order Total (USD)
+        logicalType: double
+        physicalType: double
+        isNullable: false
+        description: Total order value in USD.
+        quality:
+          - rule: not_null
+            description: Total amount must be provided.
+          - rule: is_in_range
+            minValue: 0.01
+            maxValue: 1000000.00
+            description: Total amount must be positive.
+
+      - name: order_status
+        businessName: Order Status
+        logicalType: string
+        physicalType: string
+        isNullable: false
+        description: Current lifecycle status of the order.
+        quality:
+          - rule: not_null
+            description: Order status must be provided.
+          - rule: value_in_set
+            allowedValues:
+              - pending
+              - processing
+              - shipped
+              - delivered
+              - cancelled
+            description: Status must be one of the approved lifecycle values.
+
+      - name: region
+        businessName: Shipping Region
+        logicalType: string
+        physicalType: string
+        isNullable: false
+        description: Geographic region where the order is shipped.
+        quality:
+          - rule: not_null
+            description: Shipping region must be provided.
+          - rule: value_in_set
+            allowedValues:
+              - North
+              - South
+              - East
+              - West
+            description: Region must be one of the four approved territories.
+
+servicelevels:
+  availability:
+    description: Table refreshed daily by 06:00 UTC.
+    percentage: "99.5%"
+  freshness:
+    description: Data must not be older than 25 hours.
+    threshold: 25h
+  completeness:
+    description: >
+      At least 95% of rows must pass all error-level quality checks.
+    threshold: "95%"
+
+support:
+  channel: "#data-quality-alerts"
+  on_call: data-eng-oncall@example.com

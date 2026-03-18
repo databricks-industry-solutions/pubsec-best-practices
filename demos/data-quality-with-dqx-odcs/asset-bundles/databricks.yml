@@ -1,0 +1,37 @@
+bundle:
+  name: data-quality-demo
+
+variables:
+  catalog:
+    description: Unity Catalog catalog name
+    default: main
+  schema:
+    description: Schema / database name
+    default: dq_demo
+  warehouse_id:
+    description: SQL Warehouse ID for dashboard queries
+    default: ""
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://e2-demo-field-eng.cloud.databricks.com
+      profile: e2-demo-west
+    variables:
+      catalog: main
+      schema: dq_demo
+      warehouse_id: ""
+
+  irs-demo:
+    workspace:
+      host: https://field-eng-aws-gov-demo-irs-demo.cloud.databricks.us
+      profile: irs-demo
+    variables:
+      catalog: irs_demo_catalog_2460574726701099
+      schema: dq_demo
+      warehouse_id: d52c81c3e6841d5e

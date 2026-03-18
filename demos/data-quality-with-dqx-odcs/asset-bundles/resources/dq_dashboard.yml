@@ -1,0 +1,8 @@
+resources:
+  dashboards:
+    dq_report_dashboard:
+      display_name: "Data Quality Report — ODCS + DQX"
+      file_path: ../dashboards/dq_report.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      embed_credentials: false
+      parent_path: /Users/justin.boyd@databricks.com

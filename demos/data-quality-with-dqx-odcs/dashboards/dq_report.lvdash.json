@@ -1,0 +1,452 @@
+{
+  "datasets": [
+    {
+      "name": "sum_latest",
+      "displayName": "Latest DQ Run",
+      "queryLines": [
+        "SELECT run_date, table_name, total_rows, valid_rows, quarantined_rows, overall_pass_rate, sla_threshold, sla_met, total_checks, failing_checks",
+        "FROM jboyd.dq_demo.dq_summary",
+        "ORDER BY run_date DESC",
+        "LIMIT 1"
+      ]
+    },
+    {
+      "name": "dq_results",
+      "displayName": "DQ Check Results",
+      "queryLines": [
+        "SELECT check_name, criticality, failing_rows, total_rows,",
+        "  ROUND(pass_rate * 100, 1) AS pass_rate_pct,",
+        "  status, checked_at",
+        "FROM jboyd.dq_demo.dq_results",
+        "ORDER BY criticality, failing_rows DESC"
+      ]
+    },
+    {
+      "name": "sum_history",
+      "displayName": "DQ Run History",
+      "queryLines": [
+        "SELECT run_date, table_name, total_rows, valid_rows, quarantined_rows,",
+        "  ROUND(overall_pass_rate, 1) AS overall_pass_rate,",
+        "  sla_met, total_checks, failing_checks",
+        "FROM jboyd.dq_demo.dq_summary",
+        "ORDER BY run_date DESC"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "page_overview",
+      "displayName": "Overview",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "ctr_total_rows",
+            "queries": [
+              {
+                "name": "q",
+                "query": {
+                  "datasetName": "sum_latest",
+                  "fields": [{"name": "v", "expression": "`total_rows`"}],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {"fieldName": "v", "displayName": "Total Rows Checked"}
+              },
+              "frame": {"showTitle": true, "title": "Total Rows Checked"}
+            }
+          },
+          "position": {"x": 0, "y": 0, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "ctr_valid_rows",
+            "queries": [
+              {
+                "name": "q",
+                "query": {
+                  "datasetName": "sum_latest",
+                  "fields": [{"name": "v", "expression": "`valid_rows`"}],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {"fieldName": "v", "displayName": "Valid Rows"}
+              },
+              "frame": {"showTitle": true, "title": "Valid Rows"}
+            }
+          },
+          "position": {"x": 2, "y": 0, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "ctr_quarantine",
+            "queries": [
+              {
+                "name": "q",
+                "query": {
+                  "datasetName": "sum_latest",
+                  "fields": [{"name": "v", "expression": "`quarantined_rows`"}],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {"fieldName": "v", "displayName": "Quarantined Rows"}
+              },
+              "frame": {"showTitle": true, "title": "Quarantined Rows"}
+            }
+          },
+          "position": {"x": 4, "y": 0, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "ctr_pass_rate",
+            "queries": [
+              {
+                "name": "q",
+                "query": {
+                  "datasetName": "sum_latest",
+                  "fields": [{"name": "v", "expression": "`overall_pass_rate`"}],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {"fieldName": "v", "displayName": "Overall Pass Rate %"}
+              },
+              "frame": {"showTitle": true, "title": "Overall Pass Rate %"}
+            }
+          },
+          "position": {"x": 0, "y": 3, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "ctr_sla",
+            "queries": [
+              {
+                "name": "q",
+                "query": {
+                  "datasetName": "sum_latest",
+                  "fields": [
+                    {
+                      "name": "v",
+                      "expression": "CASE WHEN `sla_met` THEN 'YES ✓' ELSE 'NO ✗' END"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {"fieldName": "v", "displayName": "SLA Met (≥95%)"}
+              },
+              "frame": {"showTitle": true, "title": "SLA Met (≥95%)"}
+            }
+          },
+          "position": {"x": 2, "y": 3, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "ctr_failing_checks",
+            "queries": [
+              {
+                "name": "q",
+                "query": {
+                  "datasetName": "sum_latest",
+                  "fields": [{"name": "v", "expression": "`failing_checks`"}],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {"fieldName": "v", "displayName": "Failing Checks"}
+              },
+              "frame": {"showTitle": true, "title": "Failing Checks"}
+            }
+          },
+          "position": {"x": 4, "y": 3, "width": 2, "height": 3}
+        }
+      ]
+    },
+    {
+      "name": "page_checks",
+      "displayName": "Check Results",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "tbl_dq_results",
+            "queries": [
+              {
+                "name": "q",
+                "query": {
+                  "datasetName": "dq_results",
+                  "fields": [
+                    {"name": "check_name",   "expression": "`check_name`"},
+                    {"name": "criticality",  "expression": "`criticality`"},
+                    {"name": "failing_rows", "expression": "`failing_rows`"},
+                    {"name": "total_rows",   "expression": "`total_rows`"},
+                    {"name": "pass_rate_pct","expression": "`pass_rate_pct`"},
+                    {"name": "status",       "expression": "`status`"},
+                    {"name": "checked_at",   "expression": "`checked_at`"}
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "check_name",
+                    "type": "string",
+                    "displayAs": "string",
+                    "title": "Check Name",
+                    "displayName": "Check Name"
+                  },
+                  {
+                    "fieldName": "criticality",
+                    "type": "string",
+                    "displayAs": "string",
+                    "title": "Criticality",
+                    "displayName": "Criticality"
+                  },
+                  {
+                    "fieldName": "failing_rows",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "title": "Failing Rows",
+                    "displayName": "Failing Rows",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "total_rows",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "title": "Total Rows",
+                    "displayName": "Total Rows",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "pass_rate_pct",
+                    "type": "float",
+                    "displayAs": "number",
+                    "numberFormat": "0.0",
+                    "title": "Pass Rate %",
+                    "displayName": "Pass Rate %",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "status",
+                    "type": "string",
+                    "displayAs": "string",
+                    "title": "Status",
+                    "displayName": "Status"
+                  },
+                  {
+                    "fieldName": "checked_at",
+                    "type": "datetime",
+                    "displayAs": "datetime",
+                    "title": "Checked At",
+                    "displayName": "Checked At"
+                  }
+                ]
+              },
+              "frame": {"showTitle": true, "title": "All DQ Checks — Detail"}
+            }
+          },
+          "position": {"x": 0, "y": 0, "width": 6, "height": 7}
+        },
+        {
+          "widget": {
+            "name": "bar_pass_rate",
+            "queries": [
+              {
+                "name": "q",
+                "query": {
+                  "datasetName": "dq_results",
+                  "fields": [
+                    {"name": "check_name",    "expression": "`check_name`"},
+                    {"name": "pass_rate_pct", "expression": "`pass_rate_pct`"},
+                    {"name": "status",        "expression": "`status`"}
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "check_name",
+                  "scale": {"type": "categorical"},
+                  "displayName": "Check"
+                },
+                "y": {
+                  "fieldName": "pass_rate_pct",
+                  "scale": {"type": "quantitative"},
+                  "displayName": "Pass Rate %"
+                },
+                "color": {
+                  "fieldName": "status",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {"value": "PASS", "color": "#00A972"},
+                      {"value": "FAIL", "color": "#FF3621"}
+                    ]
+                  },
+                  "displayName": "Status"
+                },
+                "label": {"show": false}
+              },
+              "frame": {"showTitle": true, "title": "Pass Rate by Check (%)"}
+            }
+          },
+          "position": {"x": 0, "y": 7, "width": 6, "height": 7}
+        }
+      ]
+    },
+    {
+      "name": "page_trends",
+      "displayName": "Trends",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "tbl_history",
+            "queries": [
+              {
+                "name": "q",
+                "query": {
+                  "datasetName": "sum_history",
+                  "fields": [
+                    {"name": "run_date",        "expression": "`run_date`"},
+                    {"name": "table_name",      "expression": "`table_name`"},
+                    {"name": "total_rows",      "expression": "`total_rows`"},
+                    {"name": "valid_rows",      "expression": "`valid_rows`"},
+                    {"name": "quarantined_rows","expression": "`quarantined_rows`"},
+                    {"name": "overall_pass_rate","expression": "`overall_pass_rate`"},
+                    {"name": "sla_met",         "expression": "`sla_met`"},
+                    {"name": "total_checks",    "expression": "`total_checks`"},
+                    {"name": "failing_checks",  "expression": "`failing_checks`"}
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "run_date",
+                    "type": "string",
+                    "displayAs": "string",
+                    "title": "Run Date",
+                    "displayName": "Run Date"
+                  },
+                  {
+                    "fieldName": "table_name",
+                    "type": "string",
+                    "displayAs": "string",
+                    "title": "Table",
+                    "displayName": "Table"
+                  },
+                  {
+                    "fieldName": "total_rows",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "title": "Total Rows",
+                    "displayName": "Total Rows",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "valid_rows",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "title": "Valid Rows",
+                    "displayName": "Valid Rows",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "quarantined_rows",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "title": "Quarantined",
+                    "displayName": "Quarantined",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "overall_pass_rate",
+                    "type": "float",
+                    "displayAs": "number",
+                    "numberFormat": "0.0",
+                    "title": "Pass Rate %",
+                    "displayName": "Pass Rate %",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "sla_met",
+                    "type": "boolean",
+                    "displayAs": "boolean",
+                    "title": "SLA Met",
+                    "displayName": "SLA Met"
+                  },
+                  {
+                    "fieldName": "total_checks",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "title": "Total Checks",
+                    "displayName": "Total Checks",
+                    "alignContent": "right"
+                  },
+                  {
+                    "fieldName": "failing_checks",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "title": "Failing Checks",
+                    "displayName": "Failing Checks",
+                    "alignContent": "right"
+                  }
+                ]
+              },
+              "frame": {"showTitle": true, "title": "DQ Run History"}
+            }
+          },
+          "position": {"x": 0, "y": 0, "width": 6, "height": 8}
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {"widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"},
+    "applyModeEnabled": false
+  }
+}
