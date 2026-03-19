@@ -13,16 +13,16 @@ variables:
     default: ""
 
 include:
-  - resources/*.yml
+  - asset-bundles/resources/*.yml
 
 targets:
 
   dev:
+    mode: development
     workspace:
-      mode: development
       host: https://field-eng-aws-gov-demo-irs-demo.cloud.databricks.us
       profile: irs-demo
     variables:
       catalog: irs_demo_catalog_2460574726701099
-      schema: ${workspace.current_user.userName}_dq_demo
+      schema: ${workspace.current_user.short_name}_dq_demo
       warehouse_id: d52c81c3e6841d5e
