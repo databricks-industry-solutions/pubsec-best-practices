@@ -4,10 +4,11 @@
       "name": "sum_latest",
       "displayName": "Latest DQ Run",
       "queryLines": [
-        "SELECT run_date, table_name, total_rows, valid_rows, quarantined_rows, overall_pass_rate, sla_threshold, sla_met, total_checks, failing_checks",
-        "FROM jboyd.dq_demo.dq_summary",
-        "ORDER BY run_date DESC",
-        "LIMIT 1"
+        "SELECT run_date, table_name, total_rows, valid_rows, quarantined_rows, overall_pass_rate, sla_threshold, sla_met,",
+        " CASE WHEN sla_met THEN 1 ELSE 0 END AS sla_met_num, total_checks, failing_checks",
+        " FROM dq_summary",
+        " ORDER BY run_date DESC",
+        " LIMIT 1"
       ]
     },
     {
@@ -15,10 +16,10 @@
       "displayName": "DQ Check Results",
       "queryLines": [
         "SELECT check_name, criticality, failing_rows, total_rows,",
-        "  ROUND(pass_rate * 100, 1) AS pass_rate_pct,",
-        "  status, checked_at",
-        "FROM jboyd.dq_demo.dq_results",
-        "ORDER BY criticality, failing_rows DESC"
+        " ROUND(pass_rate * 100, 1) AS pass_rate_pct,",
+        " status, checked_at",
+        " FROM dq_results",
+        " ORDER BY criticality, failing_rows DESC"
       ]
     },
     {
@@ -26,10 +27,10 @@
       "displayName": "DQ Run History",
       "queryLines": [
         "SELECT run_date, table_name, total_rows, valid_rows, quarantined_rows,",
-        "  ROUND(overall_pass_rate, 1) AS overall_pass_rate,",
-        "  sla_met, total_checks, failing_checks",
-        "FROM jboyd.dq_demo.dq_summary",
-        "ORDER BY run_date DESC"
+        " ROUND(overall_pass_rate, 1) AS overall_pass_rate,",
+        " sla_met, total_checks, failing_checks",
+        " FROM dq_summary",
+        " ORDER BY run_date DESC"
       ]
     }
   ],
@@ -44,11 +45,11 @@
             "name": "ctr_total_rows",
             "queries": [
               {
-                "name": "q",
+                "name": "main_query",
                 "query": {
                   "datasetName": "sum_latest",
-                  "fields": [{"name": "v", "expression": "`total_rows`"}],
-                  "disaggregated": true
+                  "fields": [{"name": "total_rows", "expression": "`total_rows`"}],
+                  "disaggregated": false
                 }
               }
             ],
@@ -56,7 +57,7 @@
               "version": 2,
               "widgetType": "counter",
               "encodings": {
-                "value": {"fieldName": "v", "displayName": "Total Rows Checked"}
+                "target": {"fieldName": "total_rows", "displayName": "Total Rows Checked"}
               },
               "frame": {"showTitle": true, "title": "Total Rows Checked"}
             }
@@ -68,11 +69,11 @@
             "name": "ctr_valid_rows",
             "queries": [
               {
-                "name": "q",
+                "name": "main_query",
                 "query": {
                   "datasetName": "sum_latest",
-                  "fields": [{"name": "v", "expression": "`valid_rows`"}],
-                  "disaggregated": true
+                  "fields": [{"name": "valid_rows", "expression": "`valid_rows`"}],
+                  "disaggregated": false
                 }
               }
             ],
@@ -80,7 +81,7 @@
               "version": 2,
               "widgetType": "counter",
               "encodings": {
-                "value": {"fieldName": "v", "displayName": "Valid Rows"}
+                "target": {"fieldName": "valid_rows", "displayName": "Valid Rows"}
               },
               "frame": {"showTitle": true, "title": "Valid Rows"}
             }
@@ -92,11 +93,11 @@
             "name": "ctr_quarantine",
             "queries": [
               {
-                "name": "q",
+                "name": "main_query",
                 "query": {
                   "datasetName": "sum_latest",
-                  "fields": [{"name": "v", "expression": "`quarantined_rows`"}],
-                  "disaggregated": true
+                  "fields": [{"name": "quarantined_rows", "expression": "`quarantined_rows`"}],
+                  "disaggregated": false
                 }
               }
             ],
@@ -104,7 +105,7 @@
               "version": 2,
               "widgetType": "counter",
               "encodings": {
-                "value": {"fieldName": "v", "displayName": "Quarantined Rows"}
+                "target": {"fieldName": "quarantined_rows", "displayName": "Quarantined Rows"}
               },
               "frame": {"showTitle": true, "title": "Quarantined Rows"}
             }
@@ -116,11 +117,11 @@
             "name": "ctr_pass_rate",
             "queries": [
               {
-                "name": "q",
+                "name": "main_query",
                 "query": {
                   "datasetName": "sum_latest",
-                  "fields": [{"name": "v", "expression": "`overall_pass_rate`"}],
-                  "disaggregated": true
+                  "fields": [{"name": "overall_pass_rate", "expression": "`overall_pass_rate`"}],
+                  "disaggregated": false
                 }
               }
             ],
@@ -128,7 +129,7 @@
               "version": 2,
               "widgetType": "counter",
               "encodings": {
-                "value": {"fieldName": "v", "displayName": "Overall Pass Rate %"}
+                "target": {"fieldName": "overall_pass_rate", "displayName": "Overall Pass Rate %"}
               },
               "frame": {"showTitle": true, "title": "Overall Pass Rate %"}
             }
@@ -140,16 +141,16 @@
             "name": "ctr_sla",
             "queries": [
               {
-                "name": "q",
+                "name": "main_query",
                 "query": {
                   "datasetName": "sum_latest",
                   "fields": [
                     {
-                      "name": "v",
-                      "expression": "CASE WHEN `sla_met` THEN 'YES ✓' ELSE 'NO ✗' END"
+                      "name": "sla_met_num",
+                      "expression": "`sla_met_num`"
                     }
                   ],
-                  "disaggregated": true
+                  "disaggregated": false
                 }
               }
             ],
@@ -157,9 +158,9 @@
               "version": 2,
               "widgetType": "counter",
               "encodings": {
-                "value": {"fieldName": "v", "displayName": "SLA Met (≥95%)"}
+                "target": {"fieldName": "sla_met_num", "displayName": "SLA Met (1=Yes, 0=No)"}
               },
-              "frame": {"showTitle": true, "title": "SLA Met (≥95%)"}
+              "frame": {"showTitle": true, "title": "SLA Met (>=95%)"}
             }
           },
           "position": {"x": 2, "y": 3, "width": 2, "height": 3}
@@ -169,11 +170,11 @@
             "name": "ctr_failing_checks",
             "queries": [
               {
-                "name": "q",
+                "name": "main_query",
                 "query": {
                   "datasetName": "sum_latest",
-                  "fields": [{"name": "v", "expression": "`failing_checks`"}],
-                  "disaggregated": true
+                  "fields": [{"name": "failing_checks", "expression": "`failing_checks`"}],
+                  "disaggregated": false
                 }
               }
             ],
@@ -181,7 +182,7 @@
               "version": 2,
               "widgetType": "counter",
               "encodings": {
-                "value": {"fieldName": "v", "displayName": "Failing Checks"}
+                "target": {"fieldName": "failing_checks", "displayName": "Failing Checks"}
               },
               "frame": {"showTitle": true, "title": "Failing Checks"}
             }
@@ -200,25 +201,31 @@
             "name": "tbl_dq_results",
             "queries": [
               {
-                "name": "q",
+                "name": "main_query",
                 "query": {
                   "datasetName": "dq_results",
                   "fields": [
-                    {"name": "check_name",   "expression": "`check_name`"},
-                    {"name": "criticality",  "expression": "`criticality`"},
-                    {"name": "failing_rows", "expression": "`failing_rows`"},
-                    {"name": "total_rows",   "expression": "`total_rows`"},
-                    {"name": "pass_rate_pct","expression": "`pass_rate_pct`"},
-                    {"name": "status",       "expression": "`status`"},
-                    {"name": "checked_at",   "expression": "`checked_at`"}
+                    {"name": "check_name",    "expression": "`check_name`"},
+                    {"name": "criticality",   "expression": "`criticality`"},
+                    {"name": "failing_rows",  "expression": "`failing_rows`"},
+                    {"name": "total_rows",    "expression": "`total_rows`"},
+                    {"name": "pass_rate_pct", "expression": "`pass_rate_pct`"},
+                    {"name": "status",        "expression": "`status`"},
+                    {"name": "checked_at",    "expression": "`checked_at`"}
                   ],
-                  "disaggregated": true
+                  "disaggregated": false
                 }
               }
             ],
             "spec": {
               "version": 1,
               "widgetType": "table",
+              "allowHTMLByDefault": false,
+              "condensed": false,
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "withRowNumber": false,
               "encodings": {
                 "columns": [
                   {
@@ -226,14 +233,50 @@
                     "type": "string",
                     "displayAs": "string",
                     "title": "Check Name",
-                    "displayName": "Check Name"
+                    "displayName": "Check Name",
+                    "alignContent": "left",
+                    "visible": true,
+                    "order": 10000,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "criticality",
                     "type": "string",
                     "displayAs": "string",
                     "title": "Criticality",
-                    "displayName": "Criticality"
+                    "displayName": "Criticality",
+                    "alignContent": "left",
+                    "visible": true,
+                    "order": 10001,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "failing_rows",
@@ -241,7 +284,24 @@
                     "displayAs": "number",
                     "title": "Failing Rows",
                     "displayName": "Failing Rows",
-                    "alignContent": "right"
+                    "alignContent": "right",
+                    "visible": true,
+                    "order": 10002,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "total_rows",
@@ -249,7 +309,24 @@
                     "displayAs": "number",
                     "title": "Total Rows",
                     "displayName": "Total Rows",
-                    "alignContent": "right"
+                    "alignContent": "right",
+                    "visible": true,
+                    "order": 10003,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "pass_rate_pct",
@@ -258,35 +335,88 @@
                     "numberFormat": "0.0",
                     "title": "Pass Rate %",
                     "displayName": "Pass Rate %",
-                    "alignContent": "right"
+                    "alignContent": "right",
+                    "visible": true,
+                    "order": 10004,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "status",
                     "type": "string",
                     "displayAs": "string",
                     "title": "Status",
-                    "displayName": "Status"
+                    "displayName": "Status",
+                    "alignContent": "left",
+                    "visible": true,
+                    "order": 10005,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "checked_at",
                     "type": "datetime",
                     "displayAs": "datetime",
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
                     "title": "Checked At",
-                    "displayName": "Checked At"
+                    "displayName": "Checked At",
+                    "alignContent": "left",
+                    "visible": true,
+                    "order": 10006,
+                    "booleanValues": ["false", "true"],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   }
                 ]
               },
               "frame": {"showTitle": true, "title": "All DQ Checks — Detail"}
             }
           },
-          "position": {"x": 0, "y": 0, "width": 6, "height": 7}
+          "position": {"x": 0, "y": 0, "width": 6, "height": 8}
         },
         {
           "widget": {
             "name": "bar_pass_rate",
             "queries": [
               {
-                "name": "q",
+                "name": "main_query",
                 "query": {
                   "datasetName": "dq_results",
                   "fields": [
@@ -294,7 +424,7 @@
                     {"name": "pass_rate_pct", "expression": "`pass_rate_pct`"},
                     {"name": "status",        "expression": "`status`"}
                   ],
-                  "disaggregated": false
+                  "disaggregated": true
                 }
               }
             ],
@@ -322,13 +452,12 @@
                     ]
                   },
                   "displayName": "Status"
-                },
-                "label": {"show": false}
+                }
               },
               "frame": {"showTitle": true, "title": "Pass Rate by Check (%)"}
             }
           },
-          "position": {"x": 0, "y": 7, "width": 6, "height": 7}
+          "position": {"x": 0, "y": 8, "width": 6, "height": 7}
         }
       ]
     },
@@ -342,27 +471,33 @@
             "name": "tbl_history",
             "queries": [
               {
-                "name": "q",
+                "name": "main_query",
                 "query": {
                   "datasetName": "sum_history",
                   "fields": [
-                    {"name": "run_date",        "expression": "`run_date`"},
-                    {"name": "table_name",      "expression": "`table_name`"},
-                    {"name": "total_rows",      "expression": "`total_rows`"},
-                    {"name": "valid_rows",      "expression": "`valid_rows`"},
-                    {"name": "quarantined_rows","expression": "`quarantined_rows`"},
+                    {"name": "run_date",         "expression": "`run_date`"},
+                    {"name": "table_name",       "expression": "`table_name`"},
+                    {"name": "total_rows",       "expression": "`total_rows`"},
+                    {"name": "valid_rows",       "expression": "`valid_rows`"},
+                    {"name": "quarantined_rows", "expression": "`quarantined_rows`"},
                     {"name": "overall_pass_rate","expression": "`overall_pass_rate`"},
-                    {"name": "sla_met",         "expression": "`sla_met`"},
-                    {"name": "total_checks",    "expression": "`total_checks`"},
-                    {"name": "failing_checks",  "expression": "`failing_checks`"}
+                    {"name": "sla_met",          "expression": "`sla_met`"},
+                    {"name": "total_checks",     "expression": "`total_checks`"},
+                    {"name": "failing_checks",   "expression": "`failing_checks`"}
                   ],
-                  "disaggregated": true
+                  "disaggregated": false
                 }
               }
             ],
             "spec": {
               "version": 1,
               "widgetType": "table",
+              "allowHTMLByDefault": false,
+              "condensed": false,
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "withRowNumber": false,
               "encodings": {
                 "columns": [
                   {
@@ -370,14 +505,50 @@
                     "type": "string",
                     "displayAs": "string",
                     "title": "Run Date",
-                    "displayName": "Run Date"
+                    "displayName": "Run Date",
+                    "alignContent": "left",
+                    "visible": true,
+                    "order": 10000,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "table_name",
                     "type": "string",
                     "displayAs": "string",
                     "title": "Table",
-                    "displayName": "Table"
+                    "displayName": "Table",
+                    "alignContent": "left",
+                    "visible": true,
+                    "order": 10001,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "total_rows",
@@ -385,7 +556,24 @@
                     "displayAs": "number",
                     "title": "Total Rows",
                     "displayName": "Total Rows",
-                    "alignContent": "right"
+                    "alignContent": "right",
+                    "visible": true,
+                    "order": 10002,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "valid_rows",
@@ -393,7 +581,24 @@
                     "displayAs": "number",
                     "title": "Valid Rows",
                     "displayName": "Valid Rows",
-                    "alignContent": "right"
+                    "alignContent": "right",
+                    "visible": true,
+                    "order": 10003,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "quarantined_rows",
@@ -401,7 +606,24 @@
                     "displayAs": "number",
                     "title": "Quarantined",
                     "displayName": "Quarantined",
-                    "alignContent": "right"
+                    "alignContent": "right",
+                    "visible": true,
+                    "order": 10004,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "overall_pass_rate",
@@ -410,14 +632,49 @@
                     "numberFormat": "0.0",
                     "title": "Pass Rate %",
                     "displayName": "Pass Rate %",
-                    "alignContent": "right"
+                    "alignContent": "right",
+                    "visible": true,
+                    "order": 10005,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "sla_met",
                     "type": "boolean",
                     "displayAs": "boolean",
                     "title": "SLA Met",
-                    "displayName": "SLA Met"
+                    "displayName": "SLA Met",
+                    "alignContent": "left",
+                    "visible": true,
+                    "order": 10006,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "total_checks",
@@ -425,7 +682,24 @@
                     "displayAs": "number",
                     "title": "Total Checks",
                     "displayName": "Total Checks",
-                    "alignContent": "right"
+                    "alignContent": "right",
+                    "visible": true,
+                    "order": 10007,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "failing_checks",
@@ -433,7 +707,24 @@
                     "displayAs": "number",
                     "title": "Failing Checks",
                     "displayName": "Failing Checks",
-                    "alignContent": "right"
+                    "alignContent": "right",
+                    "visible": true,
+                    "order": 10008,
+                    "booleanValues": ["false", "true"],
+                    "dateTimeFormat": "YYYY-MM-DD HH:mm:ss",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "allowSearch": false,
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   }
                 ]
               },
@@ -446,7 +737,6 @@
     }
   ],
   "uiSettings": {
-    "theme": {"widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"},
-    "applyModeEnabled": false
+    "theme": {"widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"}
   }
 }

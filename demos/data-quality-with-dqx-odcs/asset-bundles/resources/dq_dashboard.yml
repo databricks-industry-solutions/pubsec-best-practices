@@ -5,4 +5,6 @@ resources:
       file_path: ../../dashboards/dq_report.lvdash.json
       warehouse_id: ${var.warehouse_id}
       embed_credentials: false
-      parent_path: /Users/justin.boyd@databricks.com
+      parent_path: /Users/${workspace.current_user.userName}
+      dataset_catalog: ${var.catalog}
+      dataset_schema: ${var.schema}
