@@ -52,6 +52,19 @@ SYSLIB_ROOTS = [
     "libproj-dev",
 ]
 
+# Packages that are always present on Ubuntu and must NOT be bundled.
+# Copying libc6/libstdc++6/libgcc-s1 over the system versions breaks everything.
+SYSLIB_EXCLUDE = {
+    "libc6", "libc6-dev", "libc-dev-bin", "libc-bin",
+    "libgcc-s1", "libgcc1",
+    "libstdc++6", "libstdc++-13-dev",
+    "libgcc-13-dev", "libgcc-12-dev",
+    "gcc-13-base", "gcc-12-base",
+    "linux-libc-dev",
+    "libcrypt1", "libcrypt-dev",
+    "libpthread-stubs0-dev",
+}
+
 # R base/recommended packages — never need to be bundled
 R_BASE_PKGS = {
     "R", "base", "boot", "class", "cluster", "codetools", "compiler",
@@ -129,17 +142,19 @@ def parse_depends(dep_str):
     return names
 
 
-def resolve_syslib_deps(roots, db):
+def resolve_syslib_deps(roots, db, exclude=None):
     """
     BFS over Depends + Pre-Depends from root packages.
-    Returns set of package names (excluding ones not in db — virtual pkgs).
+    Returns set of package names (excluding ones not in db — virtual pkgs,
+    and excluding anything in the exclude set — core system libs).
     """
-    queue   = list(roots)
+    exclude = exclude or set()
+    queue   = [r for r in roots if r not in exclude]
     visited = set()
 
     while queue:
         name = queue.pop(0)
-        if name in visited:
+        if name in visited or name in exclude:
             continue
         visited.add(name)
 
@@ -150,7 +165,7 @@ def resolve_syslib_deps(roots, db):
         pkg = db[name]
         for field in ("Depends", "Pre-Depends"):
             for dep in parse_depends(pkg.get(field, "")):
-                if dep not in visited:
+                if dep not in visited and dep not in exclude:
                     queue.append(dep)
 
     # Only keep packages actually in the index (drop virtual/missing)
@@ -369,7 +384,7 @@ def main():
     )
 
     print(f"\nResolving transitive deps for: {', '.join(SYSLIB_ROOTS)}")
-    all_debs = resolve_syslib_deps(SYSLIB_ROOTS, ubuntu_db)
+    all_debs = resolve_syslib_deps(SYSLIB_ROOTS, ubuntu_db, SYSLIB_EXCLUDE)
     print(f"Resolved {len(all_debs)} system packages")
 
     print(f"\nDownloading .deb files to {debs_dir}/")

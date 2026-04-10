@@ -35,12 +35,18 @@ if [[ ! -f "$STAMP" ]]; then
   log "Extracting .so files from debs in ${DEB_DIR}..."
   mkdir -p "$LOCAL_SO"
 
+  SYSLIB_BLOCKLIST="libc.so|libc-|libgcc_s|libgcc-|libstdc++|libcrypt.so|libpthread|libdl.so|librt.so|libm.so"
   for deb in "${DEB_DIR}"/*.deb; do
     [[ -f "$deb" ]] || continue
     tmp_dir=$(mktemp -d)
     dpkg-deb --extract "$deb" "$tmp_dir" 2>/dev/null
-    find "$tmp_dir" -name "*.so*" -not -type d \
-      -exec cp -n {} "${SO_DIR}/" \; 2>/dev/null || true
+    find "$tmp_dir" -name "*.so*" -not -type d | while read -r f; do
+      if echo "$(basename "$f")" | grep -qE "$SYSLIB_BLOCKLIST"; then
+        true  # skip core system lib
+      else
+        cp -n "$f" "${SO_DIR}/" 2>/dev/null || true
+      fi
+    done
     rm -rf "$tmp_dir"
   done
 
@@ -51,9 +57,16 @@ else
 fi
 
 # ── 2. Copy .so files to /tmp (always — /tmp is ephemeral) ───────────────────
+# Never copy core system libs — overwriting libc/libstdc++/libgcc breaks the OS.
+SYSLIB_BLOCKLIST="libc.so|libc-|libgcc_s|libgcc-|libstdc++|libcrypt.so|libpthread|libdl.so|librt.so|libm.so"
 mkdir -p "$LOCAL_SO"
-find "$SO_DIR" -maxdepth 1 -name "*.so*" -not -type d \
-  -exec cp {} "$LOCAL_SO/" \; 2>/dev/null || true
+find "$SO_DIR" -maxdepth 1 -name "*.so*" -not -type d | while read -r f; do
+  if echo "$(basename "$f")" | grep -qE "$SYSLIB_BLOCKLIST"; then
+    log "  [skip-core] $(basename "$f")"
+  else
+    cp "$f" "$LOCAL_SO/" 2>/dev/null || true
+  fi
+done
 log "Copied $(ls "$LOCAL_SO"/*.so* 2>/dev/null | wc -l) .so files to ${LOCAL_SO}"
 
 # Persist LD_LIBRARY_PATH for the R session via /etc/environment
