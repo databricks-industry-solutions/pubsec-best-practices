@@ -16,7 +16,9 @@ A mono-repo for public sector solution accelerators and demos built on Databrick
 
 ### Demos
 
-*No demos yet. Use `demos/_template/` to create one.*
+| Project | Description |
+|---------|-------------|
+| [r-airgap-install](demos/r-airgap-install/) | Install R geospatial packages (`zipcodeR`, `sf`, `terra`, etc.) on an air-gapped Databricks cluster via UC Volume |
 
 ## Installation
 
