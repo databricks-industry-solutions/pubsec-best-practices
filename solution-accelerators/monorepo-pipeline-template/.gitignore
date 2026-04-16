@@ -1,0 +1,28 @@
+# Data files — data belongs in the lakehouse, not in Git
+*.csv
+*.parquet
+*.xlsx
+*.rds
+
+# R artifacts
+.Rhistory
+.RData
+.Rproj.user
+
+# Python artifacts
+__pycache__/
+*.pyc
+.venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+
+# Secrets — never commit credentials
+.env
+*.pem
+*.key

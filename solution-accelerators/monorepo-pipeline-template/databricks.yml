@@ -1,0 +1,21 @@
+bundle:
+  name: my-project
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://<workspace-url>
+
+  staging:
+    workspace:
+      host: https://<workspace-url>
+
+  prod:
+    mode: production
+    workspace:
+      host: https://<workspace-url>

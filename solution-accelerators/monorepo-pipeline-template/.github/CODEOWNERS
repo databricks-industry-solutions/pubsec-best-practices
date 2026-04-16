@@ -1,0 +1,10 @@
+# CODEOWNERS — Assign reviewers by pipeline
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Example: assign ownership per pipeline
+# /pipelines/pipeline_a/    @sarah @bob
+# /pipelines/pipeline_b/    @sarah @bob
+# /pipelines/pipeline_c/    @lisa
+
+# Shared utilities require team-wide review
+# /shared/                  @team
