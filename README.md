@@ -13,6 +13,7 @@ A mono-repo for public sector solution accelerators and demos built on Databrick
 | Project | Description |
 |---------|-------------|
 | [xsd-to-synthetic](solution-accelerators/xsd-to-synthetic/) | Generate synthetic data from XSD schemas using PySpark |
+| [r-airgap-install](solution-accelerators/r-airgap-install/) | Install R geospatial packages (`zipcodeR`, `sf`, `terra`, etc.) on an air-gapped Databricks cluster via UC Volume |
 
 ### Demos
 
