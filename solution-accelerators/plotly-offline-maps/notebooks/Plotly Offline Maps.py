@@ -111,7 +111,7 @@
 
 # COMMAND ----------
 
-dbutils.widgets.text("catalog", "jtafoya",        "Catalog")
+dbutils.widgets.text("catalog", "main",            "Catalog")
 dbutils.widgets.text("schema",  "default",         "Schema")
 dbutils.widgets.text("volume",  "plotly_topojson", "Volume")
 

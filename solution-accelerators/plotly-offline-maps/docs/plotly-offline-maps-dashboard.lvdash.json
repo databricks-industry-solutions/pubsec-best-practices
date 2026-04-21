@@ -4,14 +4,14 @@
       "name": "ds_states",
       "displayName": "US States",
       "queryLines": [
-        "SELECT state_abbr, metric_value FROM jtafoya.default.plotly_maps_states"
+        "SELECT state_abbr, metric_value FROM main.default.plotly_maps_states"
       ]
     },
     {
       "name": "ds_counties",
       "displayName": "US Counties",
       "queryLines": [
-        "SELECT county_fips, metric_value FROM jtafoya.default.plotly_maps_counties"
+        "SELECT county_fips, metric_value FROM main.default.plotly_maps_counties"
       ]
     }
   ],

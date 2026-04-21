@@ -1,0 +1,22 @@
+id,label,address,city,state,zip,lat,lon,kind
+0,IRS HQ,1111 Constitution Ave NW,Washington,DC,20224,38.8921,-77.0306,anchor
+1,IRS Andover Campus,310 Lowell St,Andover,MA,01810,42.6583,-71.1368,comparison
+2,IRS Atlanta Campus,4800 Buford Hwy,Chamblee,GA,30341,33.8896,-84.2820,comparison
+3,IRS Austin Campus,3651 S Interregional Hwy,Austin,TX,78741,30.2213,-97.7279,comparison
+4,IRS Brookhaven Campus,1040 Waverly Ave,Holtsville,NY,11742,40.8118,-73.0432,comparison
+5,IRS Cincinnati Campus,201 W Rivercenter Blvd,Covington,KY,41011,39.0877,-84.5080,comparison
+6,IRS Fresno Campus,5045 E Butler Ave,Fresno,CA,93727,36.7587,-119.6842,comparison
+7,IRS Kansas City Campus,333 W Pershing Rd,Kansas City,MO,64108,39.0865,-94.5838,comparison
+8,IRS Memphis Campus,5333 Getwell Rd,Memphis,TN,38118,35.0571,-89.9420,comparison
+9,IRS Ogden Campus,1973 N Rulon White Blvd,Ogden,UT,84404,41.2713,-112.0183,comparison
+10,IRS Philadelphia Campus,2970 Market St,Philadelphia,PA,19104,39.9559,-75.1899,comparison
+11,IRS Chicago Office,230 S Dearborn St,Chicago,IL,60604,41.8786,-87.6292,comparison
+12,IRS Denver Office,1999 Broadway,Denver,CO,80202,39.7489,-104.9878,comparison
+13,IRS Seattle Office,915 2nd Ave,Seattle,WA,98174,47.6060,-122.3348,comparison
+14,IRS Honolulu Office,300 Ala Moana Blvd,Honolulu,HI,96850,21.3070,-157.8583,comparison
+15,IRS Anchorage Office,949 E 36th Ave,Anchorage,AK,99508,61.1879,-149.8631,comparison
+16,IRS San Juan Office,City View Plaza II,Guaynabo,PR,00968,18.3625,-66.1128,comparison
+17,IRS Miami Office,51 SW 1st Ave,Miami,FL,33130,25.7713,-80.1937,comparison
+18,IRS Baltimore Office,31 Hopkins Plaza,Baltimore,MD,21201,39.2897,-76.6160,comparison
+19,IRS Richmond Office,400 N 8th St,Richmond,VA,23219,37.5419,-77.4360,comparison
+20,IRS Newark Office,20 Washington Pl,Newark,NJ,07102,40.7419,-74.1720,comparison

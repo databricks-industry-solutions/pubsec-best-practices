@@ -26,7 +26,7 @@
 
 # COMMAND ----------
 
-dbutils.widgets.text("catalog", "services_bureau_catalog", "Catalog")
+dbutils.widgets.text("catalog", "main",                    "Catalog")
 dbutils.widgets.text("schema",  "default",                 "Schema")
 dbutils.widgets.text("volume",  "plotly_topojson",         "Volume")
 
@@ -75,12 +75,17 @@ FILES = {
         "geojson-counties-fips.json",
         "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json",
     ),
-    # TopoJSON base map used by window.PlotlyGeoAssets pre-injection.
+    # TopoJSON base maps used by window.PlotlyGeoAssets pre-injection.
     # Pre-populating this cache before plotly.min.js loads suppresses all CDN
     # topojson fetches — making go.Choropleth and go.Scattergeo work offline.
+    # usa_110m is used by scope="usa"; world_110m by scope="world" or unset scope.
     "usa_110m.json": (
         "usa_110m.json",
         "https://raw.githubusercontent.com/plotly/plotly.js/master/dist/topojson/usa_110m.json",
+    ),
+    "world_110m.json": (
+        "world_110m.json",
+        "https://raw.githubusercontent.com/plotly/plotly.js/master/dist/topojson/world_110m.json",
     ),
 }
 

@@ -83,8 +83,11 @@ See `notebooks/Plotly Offline Maps - Dashboard Alternative` for setup instructio
 1. Download from this repo to your laptop:
    - [`data/us-states.json`](data/us-states.json) (87 KB)
    - [`data/geojson-counties-fips.json`](data/geojson-counties-fips.json) (1.7 MB)
-2. In **Catalog Explorer** → your volume → **Upload to this volume**
-3. Upload both files
+2. Download from plotly.js (MIT, not bundled in this repo):
+   - [`usa_110m.json`](https://raw.githubusercontent.com/plotly/plotly.js/master/dist/topojson/usa_110m.json) (~50 KB)
+   - [`world_110m.json`](https://raw.githubusercontent.com/plotly/plotly.js/master/dist/topojson/world_110m.json) (~50 KB, only needed for global-scope maps)
+3. In **Catalog Explorer** → your volume → **Upload to this volume**
+4. Upload all files
 
 **Option B: Workspace Git folder**
 Clone this repo into your Databricks workspace. The setup notebook detects the `data/` folder automatically.
@@ -122,6 +125,6 @@ Open `notebooks/Plotly Offline Maps` and run it. Both state and county maps shou
 
 | Widget | Default | Description |
 |--------|---------|-------------|
-| `catalog` | `jtafoya` | Unity Catalog catalog name |
+| `catalog` | `main` | Unity Catalog catalog name |
 | `schema` | `default` | Schema name |
 | `volume` | `plotly_topojson` | Volume name for GeoJSON storage |

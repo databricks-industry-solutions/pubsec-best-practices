@@ -83,7 +83,7 @@ displayHTML(
 
 # COMMAND ----------
 
-dbutils.widgets.text("catalog", "services_bureau_catalog", "Catalog")
+dbutils.widgets.text("catalog", "main",                    "Catalog")
 dbutils.widgets.text("schema",  "default",                 "Schema")
 dbutils.widgets.text("volume",  "plotly_topojson",         "Volume")
 

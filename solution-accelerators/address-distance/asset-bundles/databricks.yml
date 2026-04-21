@@ -1,0 +1,35 @@
+bundle:
+  name: address-distance
+
+workspace:
+  host: ${var.databricks_host}
+
+variables:
+  databricks_host:
+    description: Databricks workspace URL
+  catalog:
+    description: Unity Catalog catalog
+    default: user_sandbox
+  schema:
+    description: Schema (override per-user)
+    default: default
+  volume:
+    description: Volume for gazetteer and geocoder reference data
+    default: address_distance
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    default: true
+    variables:
+      databricks_host: ${DATABRICKS_HOST}
+
+  staging:
+    variables:
+      databricks_host: ${DATABRICKS_HOST}
+
+  prod:
+    variables:
+      databricks_host: ${DATABRICKS_HOST}
