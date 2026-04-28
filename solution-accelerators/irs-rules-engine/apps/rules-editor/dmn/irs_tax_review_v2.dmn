@@ -1,0 +1,581 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<dmn:definitions
+  xmlns:dmn="https://www.omg.org/spec/DMN/20230324/MODEL/"
+  xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/"
+  xmlns:kie="https://kie.org/dmn/extensions/1.0"
+  xmlns:dmndi="https://www.omg.org/spec/DMN/20230324/DMNDI/"
+  xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/"
+  xmlns:feel="https://www.omg.org/spec/DMN/20230324/FEEL/"
+  id="_IRS_TAX_REVIEW_V2"
+  name="IRS Return Review Program — v2"
+  expressionLanguage="https://www.omg.org/spec/DMN/20230324/FEEL/"
+  typeLanguage="https://www.omg.org/spec/DMN/20230324/FEEL/"
+  namespace="https://irs.gov/rules/rrp-v2">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ITEM DEFINITIONS — Structured input types
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <!-- Filing status enumeration -->
+  <dmn:itemDefinition id="_def_filing_status" name="Filing_Status" isCollection="false">
+    <dmn:typeRef>string</dmn:typeRef>
+    <dmn:allowedValues id="_def_filing_status_vals">
+      <dmn:text>"MFJ","S","HH","MFS","QSS"</dmn:text>
+    </dmn:allowedValues>
+  </dmn:itemDefinition>
+
+  <!-- Audit action enumeration -->
+  <dmn:itemDefinition id="_def_action" name="Audit_Action" isCollection="false">
+    <dmn:typeRef>string</dmn:typeRef>
+    <dmn:allowedValues id="_def_action_vals">
+      <dmn:text>"PASS","REVIEW","FLAG"</dmn:text>
+    </dmn:allowedValues>
+  </dmn:itemDefinition>
+
+  <!-- Priority enumeration -->
+  <dmn:itemDefinition id="_def_priority" name="Audit_Priority" isCollection="false">
+    <dmn:typeRef>string</dmn:typeRef>
+    <dmn:allowedValues id="_def_priority_vals">
+      <dmn:text>"NONE","MODERATE","STANDARD","HIGH","CRITICAL"</dmn:text>
+    </dmn:allowedValues>
+  </dmn:itemDefinition>
+
+  <!--
+    Tax_Return — all financial facts from the return.
+    Maps directly to columns in services_bureau_catalog.irs_rrp.tax_returns.
+  -->
+  <dmn:itemDefinition id="_def_tax_return" name="Tax_Return" isCollection="false">
+    <dmn:itemComponent id="_def_tr_agi" name="agi" isCollection="false">
+      <dmn:typeRef>number</dmn:typeRef>
+    </dmn:itemComponent>
+    <dmn:itemComponent id="_def_tr_w2" name="w2_income" isCollection="false">
+      <dmn:typeRef>number</dmn:typeRef>
+    </dmn:itemComponent>
+    <dmn:itemComponent id="_def_tr_se" name="se_income" isCollection="false">
+      <dmn:typeRef>number</dmn:typeRef>
+    </dmn:itemComponent>
+    <dmn:itemComponent id="_def_tr_fi" name="foreign_income" isCollection="false">
+      <dmn:typeRef>number</dmn:typeRef>
+    </dmn:itemComponent>
+    <dmn:itemComponent id="_def_tr_td" name="total_deductions" isCollection="false">
+      <dmn:typeRef>number</dmn:typeRef>
+    </dmn:itemComponent>
+    <dmn:itemComponent id="_def_tr_cd" name="charitable_deductions" isCollection="false">
+      <dmn:typeRef>number</dmn:typeRef>
+    </dmn:itemComponent>
+    <dmn:itemComponent id="_def_tr_cg" name="capital_gains" isCollection="false">
+      <dmn:typeRef>number</dmn:typeRef>
+    </dmn:itemComponent>
+  </dmn:itemDefinition>
+
+  <!--
+    Filer_Profile — who the filer is, not what's on the return.
+  -->
+  <dmn:itemDefinition id="_def_filer_profile" name="Filer_Profile" isCollection="false">
+    <dmn:itemComponent id="_def_fp_fs" name="filing_status" isCollection="false">
+      <dmn:typeRef>Filing_Status</dmn:typeRef>
+    </dmn:itemComponent>
+    <dmn:itemComponent id="_def_fp_pa" name="prior_audit" isCollection="false">
+      <dmn:typeRef>boolean</dmn:typeRef>
+    </dmn:itemComponent>
+    <dmn:itemComponent id="_def_fp_dep" name="dependents" isCollection="false">
+      <dmn:typeRef>number</dmn:typeRef>
+    </dmn:itemComponent>
+  </dmn:itemDefinition>
+
+  <!--
+    Audit_Result — structured output from Review Determination.
+  -->
+  <dmn:itemDefinition id="_def_audit_result" name="Audit_Result" isCollection="false">
+    <dmn:itemComponent id="_def_ar_action" name="action" isCollection="false">
+      <dmn:typeRef>Audit_Action</dmn:typeRef>
+    </dmn:itemComponent>
+    <dmn:itemComponent id="_def_ar_score" name="audit_score" isCollection="false">
+      <dmn:typeRef>number</dmn:typeRef>
+    </dmn:itemComponent>
+    <dmn:itemComponent id="_def_ar_priority" name="priority" isCollection="false">
+      <dmn:typeRef>Audit_Priority</dmn:typeRef>
+    </dmn:itemComponent>
+    <dmn:itemComponent id="_def_ar_reason" name="review_reason" isCollection="false">
+      <dmn:typeRef>string</dmn:typeRef>
+    </dmn:itemComponent>
+  </dmn:itemDefinition>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       INPUT DATA
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:inputData id="_input_return" name="Tax Return">
+    <dmn:extensionElements />
+    <dmn:variable id="_var_return" name="Tax Return" typeRef="Tax_Return" />
+  </dmn:inputData>
+
+  <dmn:inputData id="_input_filer" name="Filer Profile">
+    <dmn:extensionElements />
+    <dmn:variable id="_var_filer" name="Filer Profile" typeRef="Filer_Profile" />
+  </dmn:inputData>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       BUSINESS KNOWLEDGE MODELS — Derived ratios
+       Computed from raw return fields so the DMN is self-contained.
+       The batch scoring job can pass raw values; ratios are not
+       required to be pre-computed in the ETL.
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <!--
+    Deduction Ratio = total_deductions / agi
+    Flags returns where deductions are disproportionately large.
+  -->
+  <dmn:businessKnowledgeModel id="_bkm_deduction_ratio" name="Deduction Ratio">
+    <dmn:extensionElements />
+    <dmn:variable id="_var_dr" name="Deduction Ratio" typeRef="number" />
+    <dmn:encapsulatedLogic id="_el_dr" kind="FEEL">
+      <dmn:formalParameter id="_fp_dr_td" name="total_deductions" typeRef="number" />
+      <dmn:formalParameter id="_fp_dr_agi" name="agi" typeRef="number" />
+      <dmn:literalExpression id="_le_dr">
+        <dmn:text>if agi > 0 then total_deductions / agi else 0</dmn:text>
+      </dmn:literalExpression>
+    </dmn:encapsulatedLogic>
+  </dmn:businessKnowledgeModel>
+
+  <!--
+    Charitable Ratio = charitable_deductions / agi
+    Flags returns with outsized charitable giving relative to income.
+  -->
+  <dmn:businessKnowledgeModel id="_bkm_charitable_ratio" name="Charitable Ratio">
+    <dmn:extensionElements />
+    <dmn:variable id="_var_cr" name="Charitable Ratio" typeRef="number" />
+    <dmn:encapsulatedLogic id="_el_cr" kind="FEEL">
+      <dmn:formalParameter id="_fp_cr_cd" name="charitable_deductions" typeRef="number" />
+      <dmn:formalParameter id="_fp_cr_agi" name="agi" typeRef="number" />
+      <dmn:literalExpression id="_le_cr">
+        <dmn:text>if agi > 0 then charitable_deductions / agi else 0</dmn:text>
+      </dmn:literalExpression>
+    </dmn:encapsulatedLogic>
+  </dmn:businessKnowledgeModel>
+
+  <!--
+    SE Ratio = se_income / agi
+    High SE ratio relative to AGI is a Schedule C underreporting signal.
+  -->
+  <dmn:businessKnowledgeModel id="_bkm_se_ratio" name="SE Ratio">
+    <dmn:extensionElements />
+    <dmn:variable id="_var_sr" name="SE Ratio" typeRef="number" />
+    <dmn:encapsulatedLogic id="_el_sr" kind="FEEL">
+      <dmn:formalParameter id="_fp_sr_se" name="se_income" typeRef="number" />
+      <dmn:formalParameter id="_fp_sr_agi" name="agi" typeRef="number" />
+      <dmn:literalExpression id="_le_sr">
+        <dmn:text>if agi > 0 then se_income / agi else 0</dmn:text>
+      </dmn:literalExpression>
+    </dmn:encapsulatedLogic>
+  </dmn:businessKnowledgeModel>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION 1 — Income Risk Score
+       Evaluates AGI, SE income, and foreign income risk factors.
+       Hit policy: COLLECT SUM — all matching rules fire and accumulate.
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:decision id="_dec_income_risk" name="Income Risk Score">
+    <dmn:extensionElements />
+    <dmn:variable id="_var_income_risk" name="Income Risk Score" typeRef="number" />
+    <dmn:informationRequirement id="_ir_inc_ret">
+      <dmn:requiredInput href="#_input_return" />
+    </dmn:informationRequirement>
+    <dmn:knowledgeRequirement id="_kr_inc_sr">
+      <dmn:requiredKnowledge href="#_bkm_se_ratio" />
+    </dmn:knowledgeRequirement>
+
+    <dmn:decisionTable id="_dt_income" hitPolicy="COLLECT" aggregation="SUM">
+      <dmn:input id="_dt_inc_i1" label="AGI">
+        <dmn:inputExpression id="_dt_inc_ie1" typeRef="number">
+          <dmn:text>Tax Return.agi</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_inc_i2" label="SE Income">
+        <dmn:inputExpression id="_dt_inc_ie2" typeRef="number">
+          <dmn:text>Tax Return.se_income</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_inc_i3" label="Foreign Income">
+        <dmn:inputExpression id="_dt_inc_ie3" typeRef="number">
+          <dmn:text>Tax Return.foreign_income</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_inc_i4" label="SE Ratio">
+        <dmn:inputExpression id="_dt_inc_ie4" typeRef="number">
+          <dmn:text>SE Ratio(Tax Return.se_income, Tax Return.agi)</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="_dt_inc_o" label="Income Risk Points" typeRef="number" />
+      <dmn:annotation name="Rule Notes" />
+
+      <!-- AGI > $500K — general high-income scrutiny -->
+      <dmn:rule id="_inc_r1">
+        <dmn:inputEntry id="_inc_r1i1"><dmn:text>&gt; 500000</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_inc_r1i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_inc_r1i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_inc_r1i4"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_inc_r1o"><dmn:text>25</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>High AGI — IRS scrutiny threshold</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- SE income > $200K — Schedule C audit signal -->
+      <dmn:rule id="_inc_r2">
+        <dmn:inputEntry id="_inc_r2i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_inc_r2i2"><dmn:text>&gt; 200000</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_inc_r2i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_inc_r2i4"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_inc_r2o"><dmn:text>15</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>High SE income — Schedule C risk</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- Foreign income > $10K — FBAR/FATCA reporting requirement -->
+      <dmn:rule id="_inc_r3">
+        <dmn:inputEntry id="_inc_r3i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_inc_r3i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_inc_r3i3"><dmn:text>&gt; 10000</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_inc_r3i4"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_inc_r3o"><dmn:text>20</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>Foreign income — FBAR/FATCA trigger</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- SE income > 70% of AGI with low total AGI — underreporting signal -->
+      <dmn:rule id="_inc_r4">
+        <dmn:inputEntry id="_inc_r4i1"><dmn:text>&lt; 100000</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_inc_r4i2"><dmn:text>&gt; 50000</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_inc_r4i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_inc_r4i4"><dmn:text>&gt; 0.7</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_inc_r4o"><dmn:text>10</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>SE-heavy low-AGI return — income underreporting indicator</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION 2 — Deduction Risk Score
+       Evaluates total deductions and charitable giving.
+       Hit policy: COLLECT SUM
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:decision id="_dec_deduction_risk" name="Deduction Risk Score">
+    <dmn:extensionElements />
+    <dmn:variable id="_var_deduction_risk" name="Deduction Risk Score" typeRef="number" />
+    <dmn:informationRequirement id="_ir_ded_ret">
+      <dmn:requiredInput href="#_input_return" />
+    </dmn:informationRequirement>
+    <dmn:knowledgeRequirement id="_kr_ded_dr">
+      <dmn:requiredKnowledge href="#_bkm_deduction_ratio" />
+    </dmn:knowledgeRequirement>
+    <dmn:knowledgeRequirement id="_kr_ded_cr">
+      <dmn:requiredKnowledge href="#_bkm_charitable_ratio" />
+    </dmn:knowledgeRequirement>
+
+    <dmn:decisionTable id="_dt_deduction" hitPolicy="COLLECT" aggregation="SUM">
+      <dmn:input id="_dt_ded_i1" label="Deduction Ratio">
+        <dmn:inputExpression id="_dt_ded_ie1" typeRef="number">
+          <dmn:text>Deduction Ratio(Tax Return.total_deductions, Tax Return.agi)</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_ded_i2" label="Charitable Ratio">
+        <dmn:inputExpression id="_dt_ded_ie2" typeRef="number">
+          <dmn:text>Charitable Ratio(Tax Return.charitable_deductions, Tax Return.agi)</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="_dt_ded_o" label="Deduction Risk Points" typeRef="number" />
+      <dmn:annotation name="Rule Notes" />
+
+      <!-- Deduction ratio > 50% — disproportionate deductions -->
+      <dmn:rule id="_ded_r1">
+        <dmn:inputEntry id="_ded_r1i1"><dmn:text>&gt; 0.5</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_ded_r1i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_ded_r1o"><dmn:text>20</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>Deductions exceed 50% of AGI</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- Charitable ratio > 30% — outsized charitable giving -->
+      <dmn:rule id="_ded_r2">
+        <dmn:inputEntry id="_ded_r2i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_ded_r2i2"><dmn:text>&gt; 0.3</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_ded_r2o"><dmn:text>15</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>Charitable giving exceeds 30% of AGI</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- Both high — combined deduction overstatement signal -->
+      <dmn:rule id="_ded_r3">
+        <dmn:inputEntry id="_ded_r3i1"><dmn:text>&gt; 0.7</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_ded_r3i2"><dmn:text>&gt; 0.3</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_ded_r3o"><dmn:text>10</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>Extreme deduction + charitable combination</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION 3 — Filing Profile Risk Score
+       Evaluates filing status and audit history.
+       Hit policy: COLLECT SUM
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:decision id="_dec_filing_risk" name="Filing Profile Risk Score">
+    <dmn:extensionElements />
+    <dmn:variable id="_var_filing_risk" name="Filing Profile Risk Score" typeRef="number" />
+    <dmn:informationRequirement id="_ir_fil_filer">
+      <dmn:requiredInput href="#_input_filer" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_fil_ret">
+      <dmn:requiredInput href="#_input_return" />
+    </dmn:informationRequirement>
+
+    <dmn:decisionTable id="_dt_filing" hitPolicy="COLLECT" aggregation="SUM">
+      <dmn:input id="_dt_fil_i1" label="Filing Status">
+        <dmn:inputExpression id="_dt_fil_ie1" typeRef="string">
+          <dmn:text>Filer Profile.filing_status</dmn:text>
+        </dmn:inputExpression>
+        <dmn:inputValues id="_dt_fil_ie1_vals">
+          <dmn:text>"MFJ","S","HH","MFS","QSS"</dmn:text>
+        </dmn:inputValues>
+      </dmn:input>
+      <dmn:input id="_dt_fil_i2" label="Prior Audit">
+        <dmn:inputExpression id="_dt_fil_ie2" typeRef="boolean">
+          <dmn:text>Filer Profile.prior_audit</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_fil_i3" label="AGI">
+        <dmn:inputExpression id="_dt_fil_ie3" typeRef="number">
+          <dmn:text>Tax Return.agi</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="_dt_fil_o" label="Filing Risk Points" typeRef="number" />
+      <dmn:annotation name="Rule Notes" />
+
+      <!-- MFS — historically higher audit rate -->
+      <dmn:rule id="_fil_r1">
+        <dmn:inputEntry id="_fil_r1i1"><dmn:text>"MFS"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_fil_r1i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_fil_r1i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_fil_r1o"><dmn:text>10</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>Married Filing Separately — elevated audit rate</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- Prior audit — repeat examination candidate -->
+      <dmn:rule id="_fil_r2">
+        <dmn:inputEntry id="_fil_r2i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_fil_r2i2"><dmn:text>true</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_fil_r2i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_fil_r2o"><dmn:text>15</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>Prior audit history — repeat examination signal</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- Prior audit + high AGI — pattern of non-compliance -->
+      <dmn:rule id="_fil_r3">
+        <dmn:inputEntry id="_fil_r3i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_fil_r3i2"><dmn:text>true</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_fil_r3i3"><dmn:text>&gt; 500000</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_fil_r3o"><dmn:text>10</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>High-AGI repeat audit — pattern of non-compliance</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION 4 — Composite Audit Score
+       Sums the three risk sub-scores.
+       Uses a FEEL literal expression (cleaner than a decision table
+       for pure arithmetic aggregation).
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:decision id="_dec_composite" name="Composite Audit Score">
+    <dmn:extensionElements />
+    <dmn:variable id="_var_composite" name="Composite Audit Score" typeRef="number" />
+    <dmn:informationRequirement id="_ir_comp_inc">
+      <dmn:requiredDecision href="#_dec_income_risk" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_comp_ded">
+      <dmn:requiredDecision href="#_dec_deduction_risk" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_comp_fil">
+      <dmn:requiredDecision href="#_dec_filing_risk" />
+    </dmn:informationRequirement>
+
+    <dmn:literalExpression id="_le_composite">
+      <dmn:text>Income Risk Score + Deduction Risk Score + Filing Profile Risk Score</dmn:text>
+    </dmn:literalExpression>
+  </dmn:decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION 5 — Review Determination
+       Takes the composite score + filer profile and determines the
+       final audit action, priority, and reason.
+       Hit policy: FIRST — highest-priority rule wins.
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:decision id="_dec_review" name="Review Determination">
+    <dmn:extensionElements />
+    <dmn:variable id="_var_review" name="Review Determination" typeRef="Audit_Result" />
+    <dmn:informationRequirement id="_ir_rev_comp">
+      <dmn:requiredDecision href="#_dec_composite" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_rev_filer">
+      <dmn:requiredInput href="#_input_filer" />
+    </dmn:informationRequirement>
+
+    <dmn:decisionTable id="_dt_review" hitPolicy="FIRST">
+      <dmn:input id="_dt_rev_i1" label="Composite Score">
+        <dmn:inputExpression id="_dt_rev_ie1" typeRef="number">
+          <dmn:text>Composite Audit Score</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_rev_i2" label="Prior Audit">
+        <dmn:inputExpression id="_dt_rev_ie2" typeRef="boolean">
+          <dmn:text>Filer Profile.prior_audit</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="_dt_rev_o1" name="action" label="Action" typeRef="Audit_Action" />
+      <dmn:output id="_dt_rev_o2" name="audit_score" label="Audit Score" typeRef="number" />
+      <dmn:output id="_dt_rev_o3" name="priority" label="Priority" typeRef="Audit_Priority" />
+      <dmn:output id="_dt_rev_o4" name="review_reason" label="Review Reason" typeRef="string" />
+      <dmn:annotation name="Rule Notes" />
+
+      <!-- Score >= 60 — automatic flag, critical priority -->
+      <dmn:rule id="_rev_r1">
+        <dmn:inputEntry id="_rev_r1i1"><dmn:text>&gt;= 60</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_rev_r1i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_rev_r1o1"><dmn:text>"FLAG"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r1o2"><dmn:text>Composite Audit Score</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r1o3"><dmn:text>"CRITICAL"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r1o4"><dmn:text>"Multiple high-risk factors detected"</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>Highest risk — immediate escalation</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- Score 40-59 + prior audit — high priority flag -->
+      <dmn:rule id="_rev_r2">
+        <dmn:inputEntry id="_rev_r2i1"><dmn:text>[40..60)</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_rev_r2i2"><dmn:text>true</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_rev_r2o1"><dmn:text>"FLAG"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r2o2"><dmn:text>Composite Audit Score</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r2o3"><dmn:text>"HIGH"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r2o4"><dmn:text>"Repeat audit candidate with elevated risk score"</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>Elevated score + repeat filer</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- Score 50-59 — standard flag -->
+      <dmn:rule id="_rev_r3">
+        <dmn:inputEntry id="_rev_r3i1"><dmn:text>[50..60)</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_rev_r3i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_rev_r3o1"><dmn:text>"FLAG"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r3o2"><dmn:text>Composite Audit Score</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r3o3"><dmn:text>"STANDARD"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r3o4"><dmn:text>"Score exceeds flag threshold"</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>Above flag threshold</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- Score 25-49 — review required -->
+      <dmn:rule id="_rev_r4">
+        <dmn:inputEntry id="_rev_r4i1"><dmn:text>[25..50)</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_rev_r4i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_rev_r4o1"><dmn:text>"REVIEW"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r4o2"><dmn:text>Composite Audit Score</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r4o3"><dmn:text>"MODERATE"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r4o4"><dmn:text>"One or more risk factors require review"</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>Moderate risk — manual review</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- Score < 25 — pass -->
+      <dmn:rule id="_rev_r5">
+        <dmn:inputEntry id="_rev_r5i1"><dmn:text>&lt; 25</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_rev_r5i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_rev_r5o1"><dmn:text>"PASS"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r5o2"><dmn:text>Composite Audit Score</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r5o3"><dmn:text>"NONE"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="_rev_r5o4"><dmn:text>"No significant risk factors identified"</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>Low risk — no action required</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DRD LAYOUT — Decision Requirements Diagram
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram id="_diagram" name="IRS Return Review — Decision Flow">
+
+      <!-- Row 4 (bottom): Input data -->
+      <dmndi:DMNShape id="_s_return" dmnElementRef="_input_return">
+        <dc:Bounds x="160" y="520" width="160" height="55" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_filer" dmnElementRef="_input_filer">
+        <dc:Bounds x="760" y="520" width="160" height="55" />
+      </dmndi:DMNShape>
+
+      <!-- Row 3: BKMs -->
+      <dmndi:DMNShape id="_s_bkm_dr" dmnElementRef="_bkm_deduction_ratio" isExpanded="true">
+        <dc:Bounds x="60" y="390" width="180" height="55" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_bkm_cr" dmnElementRef="_bkm_charitable_ratio" isExpanded="true">
+        <dc:Bounds x="260" y="390" width="180" height="55" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_bkm_sr" dmnElementRef="_bkm_se_ratio" isExpanded="true">
+        <dc:Bounds x="460" y="390" width="180" height="55" />
+      </dmndi:DMNShape>
+
+      <!-- Row 2: Sub-decisions -->
+      <dmndi:DMNShape id="_s_income" dmnElementRef="_dec_income_risk">
+        <dc:Bounds x="80" y="260" width="200" height="60" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_deduction" dmnElementRef="_dec_deduction_risk">
+        <dc:Bounds x="380" y="260" width="200" height="60" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_filing" dmnElementRef="_dec_filing_risk">
+        <dc:Bounds x="680" y="260" width="200" height="60" />
+      </dmndi:DMNShape>
+
+      <!-- Row 1: Composite -->
+      <dmndi:DMNShape id="_s_composite" dmnElementRef="_dec_composite">
+        <dc:Bounds x="340" y="140" width="240" height="60" />
+      </dmndi:DMNShape>
+
+      <!-- Row 0 (top): Final determination -->
+      <dmndi:DMNShape id="_s_review" dmnElementRef="_dec_review">
+        <dc:Bounds x="340" y="30" width="240" height="60" />
+      </dmndi:DMNShape>
+
+      <!-- Edges: Tax Return → sub-decisions -->
+      <dmndi:DMNEdge id="_e_ret_inc" dmnElementRef="_ir_inc_ret">
+        <di:waypoint x="240" y="520" /><di:waypoint x="180" y="320" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="_e_ret_ded" dmnElementRef="_ir_ded_ret">
+        <di:waypoint x="240" y="520" /><di:waypoint x="480" y="320" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="_e_ret_fil" dmnElementRef="_ir_fil_ret">
+        <di:waypoint x="240" y="520" /><di:waypoint x="740" y="320" />
+      </dmndi:DMNEdge>
+
+      <!-- Edges: Filer Profile → filing risk + review -->
+      <dmndi:DMNEdge id="_e_fil_filrisk" dmnElementRef="_ir_fil_filer">
+        <di:waypoint x="840" y="520" /><di:waypoint x="820" y="320" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="_e_fil_rev" dmnElementRef="_ir_rev_filer">
+        <di:waypoint x="840" y="520" /><di:waypoint x="540" y="90" />
+      </dmndi:DMNEdge>
+
+      <!-- Edges: sub-decisions → composite -->
+      <dmndi:DMNEdge id="_e_inc_comp" dmnElementRef="_ir_comp_inc">
+        <di:waypoint x="180" y="260" /><di:waypoint x="400" y="200" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="_e_ded_comp" dmnElementRef="_ir_comp_ded">
+        <di:waypoint x="480" y="260" /><di:waypoint x="460" y="200" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="_e_fil_comp" dmnElementRef="_ir_comp_fil">
+        <di:waypoint x="780" y="260" /><di:waypoint x="540" y="200" />
+      </dmndi:DMNEdge>
+
+      <!-- Edge: composite → review -->
+      <dmndi:DMNEdge id="_e_comp_rev" dmnElementRef="_ir_rev_comp">
+        <di:waypoint x="460" y="140" /><di:waypoint x="460" y="90" />
+      </dmndi:DMNEdge>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+
+</dmn:definitions>

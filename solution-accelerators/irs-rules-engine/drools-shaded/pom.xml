@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.irs.rules</groupId>
+  <artifactId>drools-dmn-shaded</artifactId>
+  <version>2.0.0</version>
+  <packaging>jar</packaging>
+
+  <!--
+    Pure dependency bundle — no custom code.
+    This JAR puts Drools 9.x + KIE DMN runtime classes on the Databricks
+    cluster classpath. All evaluation logic lives in 04_batch_scoring.py
+    (the inline %scala DroolsHolder cell).
+
+    To rebuild: run notebooks/06_build_drools_shaded_jar on the cluster.
+    To upgrade Drools: bump drools.version below and rebuild.
+  -->
+
+  <properties>
+    <drools.version>9.44.0.Final</drools.version>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.kie</groupId>
+      <artifactId>kie-dmn-core</artifactId>
+      <version>${drools.version}</version>
+      <exclusions>
+        <exclusion><groupId>org.slf4j</groupId><artifactId>*</artifactId></exclusion>
+        <exclusion><groupId>ch.qos.logback</groupId><artifactId>*</artifactId></exclusion>
+        <!-- Jackson is bundled with Databricks Runtime -->
+        <exclusion><groupId>com.fasterxml.jackson.core</groupId><artifactId>*</artifactId></exclusion>
+        <exclusion><groupId>com.fasterxml.jackson.module</groupId><artifactId>*</artifactId></exclusion>
+        <exclusion><groupId>com.fasterxml.jackson.datatype</groupId><artifactId>*</artifactId></exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.kie</groupId>
+      <artifactId>kie-dmn-feel</artifactId>
+      <version>${drools.version}</version>
+      <exclusions>
+        <exclusion><groupId>org.slf4j</groupId><artifactId>*</artifactId></exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.drools</groupId>
+      <artifactId>drools-engine</artifactId>
+      <version>${drools.version}</version>
+      <exclusions>
+        <exclusion><groupId>org.slf4j</groupId><artifactId>*</artifactId></exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.drools</groupId>
+      <artifactId>drools-mvel</artifactId>
+      <version>${drools.version}</version>
+      <exclusions>
+        <exclusion><groupId>org.slf4j</groupId><artifactId>*</artifactId></exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.drools</groupId>
+      <artifactId>drools-core</artifactId>
+      <version>${drools.version}</version>
+      <exclusions>
+        <exclusion><groupId>org.slf4j</groupId><artifactId>*</artifactId></exclusion>
+        <exclusion><groupId>commons-codec</groupId><artifactId>*</artifactId></exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <relocations>
+                <relocation>
+                  <pattern>org.antlr</pattern>
+                  <shadedPattern>drools.shaded.antlr</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.eclipse</pattern>
+                  <shadedPattern>drools.shaded.eclipse</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.thoughtworks.xstream</pattern>
+                  <shadedPattern>drools.shaded.xstream</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.apache.commons</pattern>
+                  <shadedPattern>drools.shaded.commons</shadedPattern>
+                </relocation>
+              </relocations>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                    <exclude>org/slf4j/**</exclude>
+                    <!-- module-info.class is invalidated by package relocation -->
+                    <exclude>module-info.class</exclude>
+                    <exclude>**/module-info.class</exclude>
+                    <!-- Jackson provided by Databricks Runtime -->
+                    <exclude>com/fasterxml/**</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                  <resource>META-INF/kie.conf</resource>
+                </transformer>
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

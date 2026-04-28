@@ -1,0 +1,27 @@
+bundle:
+  name: irs-rules-engine
+
+include:
+  - resources/*.yml
+
+# Both targets reference a Databricks CLI profile named in this file. Override
+# at deploy time with `databricks bundle deploy --profile <your-profile>` or
+# replace the values below with your own profile name.
+targets:
+  dev:
+    default: true
+    mode: development
+    workspace:
+      profile: services-bureau
+
+  prod:
+    mode: production
+    workspace:
+      profile: services-bureau
+
+resources:
+  apps:
+    irs_rules_engine:
+      name: "irs-rules-engine-${bundle.target}"
+      description: "IRS Tax Return Review Rules Engine — Blaze Advisor replacement demo"
+      source_code_path: .

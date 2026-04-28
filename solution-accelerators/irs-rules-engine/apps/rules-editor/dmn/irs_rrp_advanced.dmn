@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/"
+             xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/"
+             xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/"
+             id="irs_rrp_advanced" name="IRS Return Review Program — Advanced Scoring"
+             namespace="https://irs.gov/rules/rrp-advanced"
+             expressionLanguage="https://www.omg.org/spec/DMN/20191111/FEEL/"
+             typeLanguage="https://www.omg.org/spec/DMN/20191111/FEEL/">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       INPUT DATA — Tax Return Facts
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <inputData id="input_agi" name="agi">
+    <variable id="var_agi" name="agi" typeRef="number"/>
+  </inputData>
+  <inputData id="input_se" name="se_income">
+    <variable id="var_se" name="se_income" typeRef="number"/>
+  </inputData>
+  <inputData id="input_fi" name="foreign_income">
+    <variable id="var_fi" name="foreign_income" typeRef="number"/>
+  </inputData>
+  <inputData id="input_fs" name="filing_status">
+    <variable id="var_fs" name="filing_status" typeRef="string"/>
+  </inputData>
+  <inputData id="input_pa" name="prior_audit">
+    <variable id="var_pa" name="prior_audit" typeRef="boolean"/>
+  </inputData>
+  <inputData id="input_dr" name="deduction_ratio">
+    <variable id="var_dr" name="deduction_ratio" typeRef="number"/>
+  </inputData>
+  <inputData id="input_cr" name="charitable_ratio">
+    <variable id="var_cr" name="charitable_ratio" typeRef="number"/>
+  </inputData>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION 1: Income Risk Assessment
+       Evaluates income-related risk factors independently.
+       Hit policy: COLLECT (SUM) — all matching rules contribute.
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <decision id="income_risk" name="Income Risk Assessment">
+    <variable id="var_income_risk" name="Income Risk Assessment" typeRef="number"/>
+    <informationRequirement id="ir_inc_agi"><requiredInput href="#input_agi"/></informationRequirement>
+    <informationRequirement id="ir_inc_se"><requiredInput href="#input_se"/></informationRequirement>
+    <informationRequirement id="ir_inc_fi"><requiredInput href="#input_fi"/></informationRequirement>
+
+    <decisionTable id="dt_income_risk" hitPolicy="COLLECT" aggregation="SUM">
+      <input id="ir_i_agi" label="AGI">
+        <inputExpression id="ir_ie_agi" typeRef="number"><text>agi</text></inputExpression>
+      </input>
+      <input id="ir_i_se" label="SE Income">
+        <inputExpression id="ir_ie_se" typeRef="number"><text>se_income</text></inputExpression>
+      </input>
+      <input id="ir_i_fi" label="Foreign Income">
+        <inputExpression id="ir_ie_fi" typeRef="number"><text>foreign_income</text></inputExpression>
+      </input>
+      <output id="ir_o_score" label="Income Score" name="score" typeRef="number"/>
+
+      <rule id="ir_r1"><description>High AGI — general scrutiny threshold</description>
+        <inputEntry id="ir_r1a"><text>&gt; 500000</text></inputEntry>
+        <inputEntry id="ir_r1b"><text>-</text></inputEntry>
+        <inputEntry id="ir_r1c"><text>-</text></inputEntry>
+        <outputEntry id="ir_r1o"><text>15</text></outputEntry>
+      </rule>
+      <rule id="ir_r2"><description>Very high AGI — enhanced review</description>
+        <inputEntry id="ir_r2a"><text>&gt; 1000000</text></inputEntry>
+        <inputEntry id="ir_r2b"><text>-</text></inputEntry>
+        <inputEntry id="ir_r2c"><text>-</text></inputEntry>
+        <outputEntry id="ir_r2o"><text>15</text></outputEntry>
+      </rule>
+      <rule id="ir_r3"><description>Schedule C audit risk — high SE income</description>
+        <inputEntry id="ir_r3a"><text>-</text></inputEntry>
+        <inputEntry id="ir_r3b"><text>&gt; 200000</text></inputEntry>
+        <inputEntry id="ir_r3c"><text>-</text></inputEntry>
+        <outputEntry id="ir_r3o"><text>15</text></outputEntry>
+      </rule>
+      <rule id="ir_r4"><description>SE income with low AGI — underreporting indicator</description>
+        <inputEntry id="ir_r4a"><text>&lt; 100000</text></inputEntry>
+        <inputEntry id="ir_r4b"><text>&gt; 50000</text></inputEntry>
+        <inputEntry id="ir_r4c"><text>-</text></inputEntry>
+        <outputEntry id="ir_r4o"><text>10</text></outputEntry>
+      </rule>
+      <rule id="ir_r5"><description>FBAR/FATCA — foreign income reporting</description>
+        <inputEntry id="ir_r5a"><text>-</text></inputEntry>
+        <inputEntry id="ir_r5b"><text>-</text></inputEntry>
+        <inputEntry id="ir_r5c"><text>&gt; 10000</text></inputEntry>
+        <outputEntry id="ir_r5o"><text>20</text></outputEntry>
+      </rule>
+      <rule id="ir_r6"><description>Large foreign income relative to AGI</description>
+        <inputEntry id="ir_r6a"><text>-</text></inputEntry>
+        <inputEntry id="ir_r6b"><text>-</text></inputEntry>
+        <inputEntry id="ir_r6c"><text>&gt; 100000</text></inputEntry>
+        <outputEntry id="ir_r6o"><text>10</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION 2: Filing Profile Risk
+       Evaluates filing status and history risk factors.
+       Hit policy: COLLECT (SUM)
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <decision id="filing_risk" name="Filing Profile Risk">
+    <variable id="var_filing_risk" name="Filing Profile Risk" typeRef="number"/>
+    <informationRequirement id="ir_fil_fs"><requiredInput href="#input_fs"/></informationRequirement>
+    <informationRequirement id="ir_fil_pa"><requiredInput href="#input_pa"/></informationRequirement>
+    <informationRequirement id="ir_fil_agi"><requiredInput href="#input_agi"/></informationRequirement>
+    <informationRequirement id="ir_fil_dr"><requiredInput href="#input_dr"/></informationRequirement>
+    <informationRequirement id="ir_fil_cr"><requiredInput href="#input_cr"/></informationRequirement>
+
+    <decisionTable id="dt_filing_risk" hitPolicy="COLLECT" aggregation="SUM">
+      <input id="fr_i_fs" label="Filing Status">
+        <inputExpression id="fr_ie_fs" typeRef="string"><text>filing_status</text></inputExpression>
+      </input>
+      <input id="fr_i_pa" label="Prior Audit">
+        <inputExpression id="fr_ie_pa" typeRef="boolean"><text>prior_audit</text></inputExpression>
+      </input>
+      <input id="fr_i_agi" label="AGI">
+        <inputExpression id="fr_ie_agi" typeRef="number"><text>agi</text></inputExpression>
+      </input>
+      <input id="fr_i_dr" label="Deduction Ratio">
+        <inputExpression id="fr_ie_dr" typeRef="number"><text>deduction_ratio</text></inputExpression>
+      </input>
+      <input id="fr_i_cr" label="Charitable Ratio">
+        <inputExpression id="fr_ie_cr" typeRef="number"><text>charitable_ratio</text></inputExpression>
+      </input>
+      <output id="fr_o_score" label="Filing Score" name="score" typeRef="number"/>
+
+      <rule id="fr_r1"><description>MFS filings — higher audit rate</description>
+        <inputEntry id="fr_r1a"><text>"MFS"</text></inputEntry>
+        <inputEntry id="fr_r1b"><text>-</text></inputEntry>
+        <inputEntry id="fr_r1c"><text>-</text></inputEntry>
+        <inputEntry id="fr_r1d"><text>-</text></inputEntry>
+        <inputEntry id="fr_r1e"><text>-</text></inputEntry>
+        <outputEntry id="fr_r1o"><text>10</text></outputEntry>
+      </rule>
+      <rule id="fr_r2"><description>Repeat audit candidate</description>
+        <inputEntry id="fr_r2a"><text>-</text></inputEntry>
+        <inputEntry id="fr_r2b"><text>true</text></inputEntry>
+        <inputEntry id="fr_r2c"><text>-</text></inputEntry>
+        <inputEntry id="fr_r2d"><text>-</text></inputEntry>
+        <inputEntry id="fr_r2e"><text>-</text></inputEntry>
+        <outputEntry id="fr_r2o"><text>15</text></outputEntry>
+      </rule>
+      <rule id="fr_r3"><description>Prior audit + high AGI — pattern indicator</description>
+        <inputEntry id="fr_r3a"><text>-</text></inputEntry>
+        <inputEntry id="fr_r3b"><text>true</text></inputEntry>
+        <inputEntry id="fr_r3c"><text>&gt; 500000</text></inputEntry>
+        <inputEntry id="fr_r3d"><text>-</text></inputEntry>
+        <inputEntry id="fr_r3e"><text>-</text></inputEntry>
+        <outputEntry id="fr_r3o"><text>10</text></outputEntry>
+      </rule>
+      <rule id="fr_r4"><description>Disproportionate deductions</description>
+        <inputEntry id="fr_r4a"><text>-</text></inputEntry>
+        <inputEntry id="fr_r4b"><text>-</text></inputEntry>
+        <inputEntry id="fr_r4c"><text>-</text></inputEntry>
+        <inputEntry id="fr_r4d"><text>&gt; 0.5</text></inputEntry>
+        <inputEntry id="fr_r4e"><text>-</text></inputEntry>
+        <outputEntry id="fr_r4o"><text>20</text></outputEntry>
+      </rule>
+      <rule id="fr_r5"><description>Charitable deduction overstatement</description>
+        <inputEntry id="fr_r5a"><text>-</text></inputEntry>
+        <inputEntry id="fr_r5b"><text>-</text></inputEntry>
+        <inputEntry id="fr_r5c"><text>-</text></inputEntry>
+        <inputEntry id="fr_r5d"><text>-</text></inputEntry>
+        <inputEntry id="fr_r5e"><text>&gt; 0.3</text></inputEntry>
+        <outputEntry id="fr_r5o"><text>15</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION 3: Composite Audit Score
+       Sums the two sub-decision scores into a total.
+       Uses a simple COLLECT+SUM with a single pass-through rule.
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <decision id="composite_score" name="Composite Audit Score">
+    <variable id="var_composite" name="Composite Audit Score" typeRef="number"/>
+    <informationRequirement id="ir_comp_inc"><requiredDecision href="#income_risk"/></informationRequirement>
+    <informationRequirement id="ir_comp_fil"><requiredDecision href="#filing_risk"/></informationRequirement>
+    <decisionTable id="dt_composite" hitPolicy="COLLECT" aggregation="SUM">
+      <input id="cs_i_inc" label="Income Risk">
+        <inputExpression id="cs_ie_inc" typeRef="number"><text>Income Risk Assessment</text></inputExpression>
+      </input>
+      <input id="cs_i_fil" label="Filing Risk">
+        <inputExpression id="cs_ie_fil" typeRef="number"><text>Filing Profile Risk</text></inputExpression>
+      </input>
+      <output id="cs_o" label="Total Score" name="score" typeRef="number"/>
+      <rule id="cs_r1"><description>Income risk contribution</description>
+        <inputEntry id="cs_r1a"><text>&gt;= 0</text></inputEntry>
+        <inputEntry id="cs_r1b"><text>-</text></inputEntry>
+        <outputEntry id="cs_r1o"><text>Income Risk Assessment</text></outputEntry>
+      </rule>
+      <rule id="cs_r2"><description>Filing risk contribution</description>
+        <inputEntry id="cs_r2a"><text>-</text></inputEntry>
+        <inputEntry id="cs_r2b"><text>&gt;= 0</text></inputEntry>
+        <outputEntry id="cs_r2o"><text>Filing Profile Risk</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION 4: Review Determination
+       Takes the composite score and determines the action + priority.
+       Hit policy: FIRST — highest-priority match wins.
+       Multiple outputs: action, priority, review_reason.
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <decision id="review_determination" name="Review Determination">
+    <variable id="var_review" name="Review Determination" typeRef="Any"/>
+    <informationRequirement id="ir_rev_score"><requiredDecision href="#composite_score"/></informationRequirement>
+    <informationRequirement id="ir_rev_pa"><requiredInput href="#input_pa"/></informationRequirement>
+
+    <decisionTable id="dt_review" hitPolicy="FIRST">
+      <input id="rv_i_score" label="Composite Score">
+        <inputExpression id="rv_ie_score" typeRef="number"><text>Composite Audit Score</text></inputExpression>
+      </input>
+      <input id="rv_i_pa" label="Prior Audit">
+        <inputExpression id="rv_ie_pa" typeRef="boolean"><text>prior_audit</text></inputExpression>
+      </input>
+      <output id="rv_o_action" label="Action" name="action" typeRef="string"/>
+      <output id="rv_o_priority" label="Priority" name="priority" typeRef="string"/>
+      <output id="rv_o_reason" label="Review Reason" name="review_reason" typeRef="string"/>
+
+      <rule id="rv_r1"><description>Critical — immediate escalation</description>
+        <inputEntry id="rv_r1a"><text>&gt;= 60</text></inputEntry>
+        <inputEntry id="rv_r1b"><text>-</text></inputEntry>
+        <outputEntry id="rv_r1o1"><text>"FLAG"</text></outputEntry>
+        <outputEntry id="rv_r1o2"><text>"CRITICAL"</text></outputEntry>
+        <outputEntry id="rv_r1o3"><text>"Multiple high-risk factors detected"</text></outputEntry>
+      </rule>
+      <rule id="rv_r2"><description>High priority — prior audit + elevated score</description>
+        <inputEntry id="rv_r2a"><text>[40..60)</text></inputEntry>
+        <inputEntry id="rv_r2b"><text>true</text></inputEntry>
+        <outputEntry id="rv_r2o1"><text>"FLAG"</text></outputEntry>
+        <outputEntry id="rv_r2o2"><text>"HIGH"</text></outputEntry>
+        <outputEntry id="rv_r2o3"><text>"Repeat audit candidate with elevated risk"</text></outputEntry>
+      </rule>
+      <rule id="rv_r3"><description>Standard flag</description>
+        <inputEntry id="rv_r3a"><text>[50..60)</text></inputEntry>
+        <inputEntry id="rv_r3b"><text>-</text></inputEntry>
+        <outputEntry id="rv_r3o1"><text>"FLAG"</text></outputEntry>
+        <outputEntry id="rv_r3o2"><text>"STANDARD"</text></outputEntry>
+        <outputEntry id="rv_r3o3"><text>"Score exceeds flag threshold"</text></outputEntry>
+      </rule>
+      <rule id="rv_r4"><description>Review — moderate risk</description>
+        <inputEntry id="rv_r4a"><text>[25..50)</text></inputEntry>
+        <inputEntry id="rv_r4b"><text>-</text></inputEntry>
+        <outputEntry id="rv_r4o1"><text>"REVIEW"</text></outputEntry>
+        <outputEntry id="rv_r4o2"><text>"MODERATE"</text></outputEntry>
+        <outputEntry id="rv_r4o3"><text>"One or more risk factors require review"</text></outputEntry>
+      </rule>
+      <rule id="rv_r5"><description>Low risk — no action</description>
+        <inputEntry id="rv_r5a"><text>&lt; 25</text></inputEntry>
+        <inputEntry id="rv_r5b"><text>-</text></inputEntry>
+        <outputEntry id="rv_r5o1"><text>"PASS"</text></outputEntry>
+        <outputEntry id="rv_r5o2"><text>"NONE"</text></outputEntry>
+        <outputEntry id="rv_r5o3"><text>"No significant risk factors"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DRD LAYOUT
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram id="diagram_1" name="IRS Return Review — Decision Flow">
+      <!-- Input data nodes (bottom row) -->
+      <dmndi:DMNShape id="s_agi" dmnElementRef="input_agi"><dc:Bounds x="80" y="450" width="130" height="45"/></dmndi:DMNShape>
+      <dmndi:DMNShape id="s_se" dmnElementRef="input_se"><dc:Bounds x="230" y="450" width="130" height="45"/></dmndi:DMNShape>
+      <dmndi:DMNShape id="s_fi" dmnElementRef="input_fi"><dc:Bounds x="380" y="450" width="130" height="45"/></dmndi:DMNShape>
+      <dmndi:DMNShape id="s_fs" dmnElementRef="input_fs"><dc:Bounds x="530" y="450" width="130" height="45"/></dmndi:DMNShape>
+      <dmndi:DMNShape id="s_pa" dmnElementRef="input_pa"><dc:Bounds x="680" y="450" width="130" height="45"/></dmndi:DMNShape>
+      <dmndi:DMNShape id="s_dr" dmnElementRef="input_dr"><dc:Bounds x="830" y="450" width="130" height="45"/></dmndi:DMNShape>
+      <dmndi:DMNShape id="s_cr" dmnElementRef="input_cr"><dc:Bounds x="980" y="450" width="130" height="45"/></dmndi:DMNShape>
+
+      <!-- Sub-decisions (middle row) -->
+      <dmndi:DMNShape id="s_income" dmnElementRef="income_risk"><dc:Bounds x="180" y="280" width="220" height="60"/></dmndi:DMNShape>
+      <dmndi:DMNShape id="s_filing" dmnElementRef="filing_risk"><dc:Bounds x="680" y="280" width="220" height="60"/></dmndi:DMNShape>
+
+      <!-- Composite score (aggregation) -->
+      <dmndi:DMNShape id="s_composite" dmnElementRef="composite_score"><dc:Bounds x="420" y="160" width="240" height="60"/></dmndi:DMNShape>
+
+      <!-- Final determination (top) -->
+      <dmndi:DMNShape id="s_review" dmnElementRef="review_determination"><dc:Bounds x="420" y="40" width="240" height="60"/></dmndi:DMNShape>
+
+      <!-- Edges: inputs → income risk -->
+      <dmndi:DMNEdge id="e_agi_inc" dmnElementRef="ir_inc_agi"><di:waypoint x="145" y="450"/><di:waypoint x="260" y="340"/></dmndi:DMNEdge>
+      <dmndi:DMNEdge id="e_se_inc" dmnElementRef="ir_inc_se"><di:waypoint x="295" y="450"/><di:waypoint x="290" y="340"/></dmndi:DMNEdge>
+      <dmndi:DMNEdge id="e_fi_inc" dmnElementRef="ir_inc_fi"><di:waypoint x="445" y="450"/><di:waypoint x="330" y="340"/></dmndi:DMNEdge>
+
+      <!-- Edges: inputs → filing risk -->
+      <dmndi:DMNEdge id="e_fs_fil" dmnElementRef="ir_fil_fs"><di:waypoint x="595" y="450"/><di:waypoint x="750" y="340"/></dmndi:DMNEdge>
+      <dmndi:DMNEdge id="e_pa_fil" dmnElementRef="ir_fil_pa"><di:waypoint x="745" y="450"/><di:waypoint x="790" y="340"/></dmndi:DMNEdge>
+      <dmndi:DMNEdge id="e_agi_fil" dmnElementRef="ir_fil_agi"><di:waypoint x="145" y="450"/><di:waypoint x="720" y="340"/></dmndi:DMNEdge>
+      <dmndi:DMNEdge id="e_dr_fil" dmnElementRef="ir_fil_dr"><di:waypoint x="895" y="450"/><di:waypoint x="850" y="340"/></dmndi:DMNEdge>
+      <dmndi:DMNEdge id="e_cr_fil" dmnElementRef="ir_fil_cr"><di:waypoint x="1045" y="450"/><di:waypoint x="870" y="340"/></dmndi:DMNEdge>
+
+      <!-- Edges: sub-decisions → composite -->
+      <dmndi:DMNEdge id="e_inc_comp" dmnElementRef="ir_comp_inc"><di:waypoint x="330" y="280"/><di:waypoint x="480" y="220"/></dmndi:DMNEdge>
+      <dmndi:DMNEdge id="e_fil_comp" dmnElementRef="ir_comp_fil"><di:waypoint x="750" y="280"/><di:waypoint x="600" y="220"/></dmndi:DMNEdge>
+
+      <!-- Edges: composite → review determination -->
+      <dmndi:DMNEdge id="e_comp_rev" dmnElementRef="ir_rev_score"><di:waypoint x="540" y="160"/><di:waypoint x="540" y="100"/></dmndi:DMNEdge>
+      <dmndi:DMNEdge id="e_pa_rev" dmnElementRef="ir_rev_pa"><di:waypoint x="745" y="450"/><di:waypoint x="620" y="100"/></dmndi:DMNEdge>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+
+</definitions>
