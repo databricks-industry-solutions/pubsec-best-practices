@@ -1,7 +1,7 @@
-# IRS Rules Editor
+# Fraud Rules Editor
 
 Rules editor for authoring, testing, and governing the DMN rules that drive the
-IRS Return Review Program POC. A React frontend wraps the Apache KIE DMN Editor;
+tax authority fraud detection workflow POC. A React frontend wraps the Apache KIE DMN Editor;
 a FastAPI backend reads and writes DMN XML to a Unity Catalog Volume, tracks
 `DRAFT` / `ACTIVE` / `ARCHIVED` versions in a Delta governance table, and
 triggers Drools-powered batch scoring via a saved Databricks job. Deployed as a

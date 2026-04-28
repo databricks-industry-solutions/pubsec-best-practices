@@ -1,4 +1,4 @@
-"""IRS Rules Engine API routes."""
+"""Fraud Rules Engine API routes."""
 
 from fastapi import APIRouter
 

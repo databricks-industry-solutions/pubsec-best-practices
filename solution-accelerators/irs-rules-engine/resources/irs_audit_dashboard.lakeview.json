@@ -86,7 +86,7 @@
           "widget": {
             "name": "title-widget",
             "multilineTextboxSpec": {
-              "lines": ["## IRS Return Review Program — Audit Scoring Dashboard"]
+              "lines": ["## Tax Authority Fraud Detection — Audit Scoring Dashboard"]
             }
           },
           "position": {"x": 0, "y": 0, "width": 6, "height": 1}

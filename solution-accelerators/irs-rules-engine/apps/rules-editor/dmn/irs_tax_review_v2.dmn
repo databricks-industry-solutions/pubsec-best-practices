@@ -217,7 +217,7 @@
         <dmn:inputEntry id="_inc_r1i3"><dmn:text>-</dmn:text></dmn:inputEntry>
         <dmn:inputEntry id="_inc_r1i4"><dmn:text>-</dmn:text></dmn:inputEntry>
         <dmn:outputEntry id="_inc_r1o"><dmn:text>25</dmn:text></dmn:outputEntry>
-        <dmn:annotationEntry><dmn:text>High AGI — IRS scrutiny threshold</dmn:text></dmn:annotationEntry>
+        <dmn:annotationEntry><dmn:text>High AGI — tax authority scrutiny threshold</dmn:text></dmn:annotationEntry>
       </dmn:rule>
 
       <!-- SE income > $200K — Schedule C audit signal -->

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy the IRS Rules Editor app to Databricks Apps
+# Deploy the Fraud Rules Editor app to Databricks Apps
 # Usage: cd apps/rules-editor && ./deploy.sh
 # or:    ./apps/rules-editor/deploy.sh (from project root)
 

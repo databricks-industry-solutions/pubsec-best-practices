@@ -355,7 +355,7 @@ V31_BINDING = {
 
 initial_version = spark.createDataFrame([Row(
     version_id="v3.1-irm",
-    rule_set_name="IRS Tax Return Review",
+    rule_set_name="Tax Return Review",
     dmn_path=f"/Volumes/{CATALOG}/{SCHEMA}/{VOLUME}/irs_tax_review_v3_1_irm.dmn",
     binding_json=json.dumps(V31_BINDING),
     input_view=f"{CATALOG}.{SCHEMA}.scoring_input_v3_1",

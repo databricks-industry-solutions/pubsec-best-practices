@@ -2,13 +2,13 @@
 
 ## Overview
 
-This document describes the architecture for running Apache Drools DMN (Decision Model and Notation) rule evaluation at batch scale on Databricks, replacing FICO Blaze Advisor for the IRS Return Review Program.
+This document describes the architecture for running Apache Drools DMN (Decision Model and Notation) rule evaluation at batch scale on Databricks, replacing FICO Blaze Advisor for a tax authority fraud detection workflow.
 
 The pipeline scores 10,000,000 synthetic tax returns against 21 DMN decision rules (IRM 25.1.2) plus a chained `Recommended Action` decision in **~3:36 cold / ~2:21 warm** on a 4-node `c5.4xlarge` cluster (64 cores). Zero errors. No silent failures.
 
 ## Why Drools on Databricks
 
-FICO Blaze Advisor is being replaced. The IRS needs an open-source, open-standard rules engine that:
+FICO Blaze Advisor is being replaced. The tax authority needs an open-source, open-standard rules engine that:
 
 - Accepts DMN files exported from Blaze Advisor (no translation layer)
 - Evaluates FEEL expressions at DMN Level 3 conformance
@@ -86,7 +86,7 @@ FICO Blaze Advisor is being replaced. The IRS needs an open-source, open-standar
 
 ## Input Contract: Materialized View + Binding
 
-The pipeline has two contracts the IRS owns:
+The pipeline has two contracts the tax authority owns:
 
 1. **The DMN** — declares input names (`agi`, `filing_status`, ...) and decisions (`Tax Review Scoring`, `Recommended Action`).
 2. **A Unity Catalog Materialized View** named in the binding's `input_view` field. Every DMN input must appear as a same-named column on this view (lowercase snake_case is the convention).
@@ -97,7 +97,7 @@ The binding (`rule_versions.binding_json`, v2) is small — ~20 lines — and on
 - Which DMN decisions land in which Delta-table columns (`outputs`)
 - Optional per-input overrides (`columns`, rare — for unit conversion)
 
-There are **no joins, no per-column SQL inside the binding**. All flattening, defaulting, and derivation lives in the MV's SQL, which the IRS owns and refreshes. This means:
+There are **no joins, no per-column SQL inside the binding**. All flattening, defaulting, and derivation lives in the MV's SQL, which the tax authority owns and refreshes. This means:
 
 - **Adding a column** is an MV change (a new versioned MV: `scoring_input_v3_2`), not a binding-syntax exercise.
 - **Validation is mechanical**: pre-flight (`notebooks/_binding_preflight.py`) DESCRIBEs the MV, asserts every DMN input has a name-matched column, and runs the same checks `04_batch_scoring.py` runs.
@@ -267,7 +267,7 @@ Stored in UC Volume at `/Volumes/<your-catalog>/<your-schema>/<your-volume>/droo
 
 ## The Rules
 
-21 IRS fraud detection rules grounded in IRM Part 25.1.2 (Recognizing and Developing Fraud), implemented as a DMN COLLECT+SUM decision table. Each rule contributes independently to a cumulative audit score, with maximum possible score around 200.
+21 tax authority fraud detection rules grounded in IRM Part 25.1.2 (Recognizing and Developing Fraud), implemented as a DMN COLLECT+SUM decision table. Each rule contributes independently to a cumulative audit score, with maximum possible score around 200.
 
 **Six IRM categories:**
 

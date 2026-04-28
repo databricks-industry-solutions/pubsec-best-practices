@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # 01 — Setup Unity Catalog Resources
 # MAGIC
-# MAGIC Bootstraps the catalog, schema, and volume for the IRS RRP pipeline.
+# MAGIC Bootstraps the catalog, schema, and volume for the tax authority fraud detection pipeline.
 # MAGIC DMN files are uploaded by the rules-editor app, not this notebook.
 
 # COMMAND ----------
@@ -20,7 +20,7 @@ VOLUME  = dbutils.widgets.get('volume').strip()  or 'dmn_rules'
 spark.sql(f"USE CATALOG {CATALOG}")
 spark.sql(f"""
     CREATE SCHEMA IF NOT EXISTS {SCHEMA}
-    COMMENT 'IRS Return Review Program — Drools DMN rules engine POC'
+    COMMENT 'Tax authority fraud detection workflow — Drools DMN rules engine POC'
 """)
 spark.sql(f"USE SCHEMA {SCHEMA}")
 spark.sql(f"""

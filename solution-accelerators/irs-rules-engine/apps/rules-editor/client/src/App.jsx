@@ -791,7 +791,7 @@ export default function App() {
 
   if (loading) return (
     <div className="splash">
-      <div className="splash-brand">IRS Rules Engine</div>
+      <div className="splash-brand">Fraud Rules Engine</div>
       <div className="splash-sub">Loading decision model…</div>
       <div className="splash-bar"><div className="splash-bar-fill"></div></div>
     </div>
@@ -818,7 +818,7 @@ export default function App() {
               <rect x="6" y="18" width="17" height="3" rx="1.5" fill="#bfdbfe"/>
               <polygon points="18,24 26,24 22,28" fill="#2563eb" opacity="0.9"/>
             </svg>
-            IRS Rules Engine
+            Fraud Rules Engine
           </div>
           <div className="header-sep"></div>
           {currentVersionId && (

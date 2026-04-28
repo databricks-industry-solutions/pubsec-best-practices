@@ -1,13 +1,13 @@
-# Adding Rules, Inputs, and Outputs — IRS RRP
+# Adding Rules, Inputs, and Outputs
 
-How the IRS extends the Drools/DMN rules engine without touching code.
+How a tax authority extends the Drools/DMN rules engine without touching code.
 
 The pipeline has two contracts:
 
 1. **The DMN** — declares input names, decisions, and rules. Authored in
    the rule-editor app or any DMN tool.
 2. **The input view** — a Unity Catalog **table, view, or materialized
-   view** whose columns match the DMN inputs by name. The IRS owns the
+   view** whose columns match the DMN inputs by name. The tax authority owns the
    SQL. A materialized view is the recommended choice for batch scoring
    (pre-computed, refreshed on a schedule), but a plain table or view
    works too — the notebook reads whatever `input_view` points at.
@@ -175,7 +175,7 @@ Same as the no-new-input case, but the new row points at the new MV:
 
 ```sql
 INSERT INTO <your-catalog>.<your-schema>.rule_versions VALUES (
-  'v3.2-irm', 'IRS Tax Return Review',
+  'v3.2-irm', 'Tax Return Review',
   '/Volumes/.../irs_tax_review_v3_2_irm.dmn',
   '<binding_json with input_view = scoring_input_v3_2>',
   '<your-catalog>.<your-schema>.scoring_input_v3_2',

@@ -1,7 +1,7 @@
-# IRS RRP Notebooks — Batch Scoring Pipeline
+# Notebooks — Batch Scoring Pipeline
 
 The numbered notebooks form the end-to-end Drools + DMN batch pipeline
-for the IRS Return Review Program POC. A v2 binding (one row in
+for the tax authority fraud detection workflow POC. A v2 binding (one row in
 `rule_versions`) ties together a DMN file in a UC Volume and an
 `input_view` — a Unity Catalog **table, view, or materialized view**
 that is the input contract. The current deployed pipeline uses a

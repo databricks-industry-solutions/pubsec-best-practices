@@ -190,7 +190,7 @@ async def save_dmn(req: SaveDmnRequest):
       (version_id, rule_set_name, dmn_path, status, created_by, created_at, notes)
       VALUES (
         :version_id,
-        'IRS Tax Return Review',
+        'Tax Return Review',
         :dmn_path,
         'DRAFT',
         current_user(),
@@ -252,7 +252,7 @@ async def promote_version(req: PromoteRequest):
 
 def _score_python(req: EvaluateRequest) -> tuple[float, list[str]]:
   """
-  Pure-Python implementation of the IRS scoring rules.
+  Pure-Python implementation of the tax authority scoring rules.
   21 rules across 6 IRM 25.1.2 categories, COLLECT+SUM model.
   """
   score = 0.0

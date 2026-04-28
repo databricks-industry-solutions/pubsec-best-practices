@@ -1,4 +1,4 @@
-"""FastAPI application for IRS Rules Engine."""
+"""FastAPI application for Fraud Rules Engine."""
 
 import os
 from contextlib import asynccontextmanager
@@ -18,8 +18,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-  title='IRS Rules Engine',
-  description='DMN rule editor, test evaluation, and batch scoring for the IRS Return Review Program',
+  title='Fraud Rules Engine',
+  description='DMN rule editor, test evaluation, and batch scoring for a tax authority fraud detection workflow',
   version='1.0.0',
   lifespan=lifespan,
 )

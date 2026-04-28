@@ -1,10 +1,10 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # IRS RRP — Batch Scoring (binding-driven, MV-as-input-contract)
+# MAGIC # Batch Scoring (binding-driven, MV-as-input-contract)
 # MAGIC
 # MAGIC Loads the ACTIVE DMN + its v2 `binding_json` from `rule_versions`. The
 # MAGIC binding names a single `input_view` (a UC Materialized View that the
-# MAGIC IRS owns and refreshes) plus one or more `outputs`. There are no joins
+# MAGIC tax authority owns and refreshes) plus one or more `outputs`. There are no joins
 # MAGIC or per-column SQL inside the binding — the MV is the contract.
 # MAGIC
 # MAGIC **Adding a new rule = edit the DMN + (sometimes) edit the MV.**

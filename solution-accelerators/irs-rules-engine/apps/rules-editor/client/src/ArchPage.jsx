@@ -118,7 +118,7 @@ export default function ArchPage({ onClose }) {
         {/* Header */}
         <div className="arch-header">
           <div className="arch-header-left">
-            <div className="arch-eyebrow">IRS Return Review Program</div>
+            <div className="arch-eyebrow">Tax Authority Fraud Detection</div>
             <h1 className="arch-title" id="arch-title-id">Blaze Advisor → Databricks</h1>
             <div className="arch-subtitle">Open-standard DMN on an open-source runtime, fully on Databricks</div>
           </div>

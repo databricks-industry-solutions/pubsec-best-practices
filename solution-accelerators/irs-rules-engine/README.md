@@ -1,8 +1,8 @@
-# IRS Return Review Program — Rules Engine POC
+# Tax Authority Fraud Detection — Rules Engine POC
 
-A Databricks-native replacement for **FICO Blaze Advisor**, built on open standards (DMN) and open source (Apache Drools) for the IRS Return Review Program. Rules are authored in a DMN editor, stored in Unity Catalog, and executed as a Spark SQL UDF at batch scale — 10M returns scored in **~3:36 cold / ~2:21 warm** on a 4-node cluster with zero errors. Adding a new rule is a DMN edit; the notebook never changes.
+A Databricks-native replacement for **FICO Blaze Advisor**, built on open standards (DMN) and open source (Apache Drools) for a tax authority fraud detection workflow. Rules are authored in a DMN editor, stored in Unity Catalog, and executed as a Spark SQL UDF at batch scale — 10M returns scored in **~3:36 cold / ~2:21 warm** on a 4-node cluster with zero errors. Adding a new rule is a DMN edit; the notebook never changes.
 
-> **Disclaimer:** This is a proof-of-concept. All tax return data in this repository is **synthetic**. No real IRS data, taxpayer information, or PII is used anywhere in the codebase.
+> **Disclaimer:** This is a proof-of-concept. All tax return data in this repository is **synthetic**. No real taxpayer data or PII is used anywhere in the codebase.
 
 ## Quick stats
 

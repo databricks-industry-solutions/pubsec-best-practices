@@ -23,5 +23,5 @@ resources:
   apps:
     irs_rules_engine:
       name: "irs-rules-engine-${bundle.target}"
-      description: "IRS Tax Return Review Rules Engine — Blaze Advisor replacement demo"
+      description: "Tax Return Review Rules Engine — Blaze Advisor replacement demo"
       source_code_path: .

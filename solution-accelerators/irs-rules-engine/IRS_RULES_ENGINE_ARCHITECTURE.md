@@ -1,8 +1,8 @@
-# IRS Rules Engine — Comprehensive POC Architecture
+# Fraud Rules Engine — Comprehensive POC Architecture
 
 ## The Story We're Telling
 
-> "The IRS Return Review Program currently runs on FICO Blaze Advisor — a legacy,
+> "A tax authority fraud detection workflow currently runs on FICO Blaze Advisor — a legacy,
 > proprietary rules engine with vendor lock-in, limited scalability, and no native
 > integration with the modern data platform. Here's how Databricks replaces it
 > entirely — rules authoring, execution, governance, and monitoring — using open
@@ -72,7 +72,7 @@ Trigger (schedule or manual)
 - Rule versions stored as files in UC Volume + metadata in Delta table
 - Promotion workflow: DRAFT → ACTIVE → ARCHIVED
 - Pre-flight validator (`notebooks/00_validate_binding.py`) compiles the DMN, parses the binding, runs every check the scoring job runs (JSON schema, MV column coverage, decision name match, expression whitelist) — wire it into a promotion gate. Promotion fails if any check fails.
-- Only one rule set ACTIVE at a time (mirrors IRS governance requirement)
+- Only one rule set ACTIVE at a time (mirrors tax authority governance requirement)
 - Full audit trail: who changed what, when, why
 
 **Delta tables (under `<your-catalog>.<your-schema>`):**
@@ -172,7 +172,7 @@ for out_name, out_spec in binding["outputs"].items():
 ## Demo Script (15 minutes)
 
 ### Minute 0-3: The Problem
-"The IRS Return Review Program scores 150M+ returns per year using FICO Blaze Advisor.
+"A tax authority fraud detection workflow scores 150M+ returns per year using FICO Blaze Advisor.
 Here's what that looks like today — and here's what it looks like on Databricks."
 
 ### Minute 3-6: Import Rules from Blaze
