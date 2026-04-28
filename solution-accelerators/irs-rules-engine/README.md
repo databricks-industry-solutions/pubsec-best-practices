@@ -80,11 +80,8 @@ The editor can run locally or be deployed as a Databricks App. See [`apps/rules-
 > sets concurrently (e.g. individual / business / digital-asset) is on
 > the table, but the right *result shape* (per-set tables vs. a unified
 > `scored_results` with a `rule_set_name` column vs. a hybrid view)
-> depends on how analysts and dashboards consume the output, which we
-> don't have signal on yet. See
-> [`docs/decisions/2026-04-27-multi-rule-set-design-space.md`](./docs/decisions/2026-04-27-multi-rule-set-design-space.md)
-> for the three result-shape options, three orchestration options, and
-> the information needed before deciding.
+> depends on how analysts and dashboards consume the output. Decision
+> deferred until consumption patterns are clearer.
 
 ## Further reading
 
@@ -94,7 +91,6 @@ The editor can run locally or be deployed as a Databricks App. See [`apps/rules-
 | [`IRS_RULES_ENGINE_ARCHITECTURE.md`](./IRS_RULES_ENGINE_ARCHITECTURE.md) | Broader POC story — mapping Blaze Advisor capabilities to Databricks equivalents |
 | [`ADDING_INPUTS.md`](./ADDING_INPUTS.md) | How to add rules, inputs, and output tables — DMN edit + (sometimes) input-view edit + promote |
 | [`apps/rules-editor/README.md`](./apps/rules-editor/README.md) | Rule-editor app setup and development |
-| [`docs/decisions/`](./docs/decisions/) | Architecture decision records and historical reviews — including the multi-rule-set design space |
 
 ## License
 
