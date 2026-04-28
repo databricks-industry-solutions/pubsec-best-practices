@@ -19,13 +19,15 @@
 
 # COMMAND ----------
 
-dbutils.widgets.text('retention_days',  '30',    'Retention window (days)')
-dbutils.widgets.text('cleanup_confirm', 'false', 'Actually drop? (true|false)')
+dbutils.widgets.text('retention_days',  '30',                      'Retention window (days)')
+dbutils.widgets.text('cleanup_confirm', 'false',                   'Actually drop? (true|false)')
+dbutils.widgets.text('catalog',         'main', 'UC catalog')
+dbutils.widgets.text('schema',          'irs_rrp',                 'UC schema')
 
 # COMMAND ----------
 
-CATALOG = "services_bureau_catalog"
-SCHEMA  = "irs_rrp"
+CATALOG = dbutils.widgets.get('catalog').strip() or 'main'
+SCHEMA  = dbutils.widgets.get('schema').strip()  or 'irs_rrp'
 MV_PREFIX = "scoring_input_"
 
 retention_days = int(dbutils.widgets.get('retention_days'))

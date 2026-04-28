@@ -5,7 +5,7 @@
       "displayName": "Action Summary",
       "queryLines": [
         "SELECT recommended_action, COUNT(*) as cnt, ROUND(AVG(audit_score), 1) as avg_score ",
-        "FROM services_bureau_catalog.irs_rrp.scored_results ",
+        "FROM <your-catalog>.<your-schema>.scored_results ",
         "GROUP BY recommended_action"
       ]
     },
@@ -19,7 +19,7 @@
         "SUM(CASE WHEN recommended_action = 'PASS' THEN 1 ELSE 0 END) as pass_count, ",
         "ROUND(100.0 * SUM(CASE WHEN recommended_action = 'FLAG' THEN 1 ELSE 0 END) / COUNT(*), 2) as flag_rate_pct, ",
         "ROUND(AVG(audit_score), 1) as avg_audit_score ",
-        "FROM services_bureau_catalog.irs_rrp.scored_results"
+        "FROM <your-catalog>.<your-schema>.scored_results"
       ]
     },
     {
@@ -27,7 +27,7 @@
       "displayName": "Filing Status by Action",
       "queryLines": [
         "SELECT filing_status, recommended_action, COUNT(*) as cnt ",
-        "FROM services_bureau_catalog.irs_rrp.scored_results ",
+        "FROM <your-catalog>.<your-schema>.scored_results ",
         "GROUP BY filing_status, recommended_action"
       ]
     },
@@ -44,7 +44,7 @@
         "END as agi_band, ",
         "recommended_action, ",
         "COUNT(*) as cnt ",
-        "FROM services_bureau_catalog.irs_rrp.scored_results ",
+        "FROM <your-catalog>.<your-schema>.scored_results ",
         "GROUP BY 1, 2"
       ]
     },
@@ -70,7 +70,7 @@
         "  ELSE 'FLAG' ",
         "END as action_zone, ",
         "COUNT(*) as cnt ",
-        "FROM services_bureau_catalog.irs_rrp.scored_results ",
+        "FROM <your-catalog>.<your-schema>.scored_results ",
         "GROUP BY 1, 2 ",
         "ORDER BY 1"
       ]
@@ -95,7 +95,7 @@
           "widget": {
             "name": "subtitle-widget",
             "multilineTextboxSpec": {
-              "lines": ["GoRules ZEN Engine · 10M synthetic tax returns · services_bureau_catalog.irs_rrp.scored_results"]
+              "lines": ["GoRules ZEN Engine · 10M synthetic tax returns · <your-catalog>.<your-schema>.scored_results"]
             }
           },
           "position": {"x": 0, "y": 1, "width": 6, "height": 1}

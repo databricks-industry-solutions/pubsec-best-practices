@@ -7,26 +7,34 @@
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC USE CATALOG services_bureau_catalog;
-# MAGIC
-# MAGIC CREATE SCHEMA IF NOT EXISTS irs_rrp
-# MAGIC COMMENT 'IRS Return Review Program — Drools DMN rules engine POC';
-# MAGIC
-# MAGIC USE SCHEMA irs_rrp;
-# MAGIC
-# MAGIC CREATE VOLUME IF NOT EXISTS dmn_rules
-# MAGIC COMMENT 'DMN rule definition files and the Drools shaded JAR';
+dbutils.widgets.text('catalog', 'main', 'UC catalog')
+dbutils.widgets.text('schema',  'irs_rrp',                 'UC schema')
+dbutils.widgets.text('volume',  'dmn_rules',               'UC volume')
+
+CATALOG = dbutils.widgets.get('catalog').strip() or 'main'
+SCHEMA  = dbutils.widgets.get('schema').strip()  or 'irs_rrp'
+VOLUME  = dbutils.widgets.get('volume').strip()  or 'dmn_rules'
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SHOW SCHEMAS IN services_bureau_catalog;
+spark.sql(f"USE CATALOG {CATALOG}")
+spark.sql(f"""
+    CREATE SCHEMA IF NOT EXISTS {SCHEMA}
+    COMMENT 'IRS Return Review Program — Drools DMN rules engine POC'
+""")
+spark.sql(f"USE SCHEMA {SCHEMA}")
+spark.sql(f"""
+    CREATE VOLUME IF NOT EXISTS {VOLUME}
+    COMMENT 'DMN rule definition files and the Drools shaded JAR'
+""")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SHOW VOLUMES IN services_bureau_catalog.irs_rrp;
+display(spark.sql(f"SHOW SCHEMAS IN {CATALOG}"))
+
+# COMMAND ----------
+
+display(spark.sql(f"SHOW VOLUMES IN {CATALOG}.{SCHEMA}"))
 
 # COMMAND ----------
 

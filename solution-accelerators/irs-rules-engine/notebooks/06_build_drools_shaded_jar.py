@@ -22,9 +22,13 @@
 
 import os, shutil, subprocess, sys, glob
 
-CATALOG     = "services_bureau_catalog"
-SCHEMA      = "irs_rrp"
-VOLUME      = "dmn_rules"
+dbutils.widgets.text('catalog', 'main', 'UC catalog')
+dbutils.widgets.text('schema',  'irs_rrp',                 'UC schema')
+dbutils.widgets.text('volume',  'dmn_rules',               'UC volume')
+
+CATALOG     = dbutils.widgets.get('catalog').strip() or 'main'
+SCHEMA      = dbutils.widgets.get('schema').strip()  or 'irs_rrp'
+VOLUME      = dbutils.widgets.get('volume').strip()  or 'dmn_rules'
 JAR_NAME    = "drools-dmn-shaded-2.0.0.jar"
 VOLUME_PATH = f"/Volumes/{CATALOG}/{SCHEMA}/{VOLUME}/{JAR_NAME}"
 BUILD_DIR   = "/tmp/drools-build"

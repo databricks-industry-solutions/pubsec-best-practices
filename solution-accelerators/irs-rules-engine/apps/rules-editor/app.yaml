@@ -13,5 +13,13 @@ env:
     value: "<your-warehouse-id>"
   - name: DATABRICKS_CLUSTER_ID
     value: "<your-cluster-id>"
+  - name: SCORING_JOB_ID
+    value: "<your-job-id>"
   - name: SCORING_NOTEBOOK_PATH
     value: "/Workspace/Shared/irs_rules_engine/04_batch_scoring"
+  - name: UC_CATALOG
+    value: "main"
+  - name: UC_SCHEMA
+    value: "irs_rrp"
+  - name: UC_VOLUME
+    value: "dmn_rules"

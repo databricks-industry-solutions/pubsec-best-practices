@@ -17,7 +17,7 @@ A Databricks-native replacement for **FICO Blaze Advisor**, built on open standa
 ## Architecture at a glance
 
 1. **Author** — DMN XML authored in the React rule-editor app (Apache KIE DMN Editor component) with a FastAPI backend, deployed as a Databricks App.
-2. **Store** — DMN files are saved to a Unity Catalog Volume (`/Volumes/services_bureau_catalog/irs_rrp/dmn_rules/`) and registered in the `rule_versions` Delta table along with a v2 `binding_json` (names the `input_view` and lists which DMN decisions land in which output columns) and an `input_view` field.
+2. **Store** — DMN files are saved to a Unity Catalog Volume (`/Volumes/<your-catalog>/<your-schema>/<your-volume>/`) and registered in the `rule_versions` Delta table along with a v2 `binding_json` (names the `input_view` and lists which DMN decisions land in which output columns) and an `input_view` field.
 3. **Input contract** — `input_view` points at a Unity Catalog table, view, or materialized view whose columns name-match the DMN inputs (lowercase snake_case). All flattening, defaulting, and derivation lives in that view's SQL — the binding has no joins, no per-column SQL.
 4. **Promote** — A row in `rule_versions` is marked `ACTIVE`; batch scoring picks up the latest `ACTIVE` version (or an explicit `version_id`). `notebooks/00_validate_binding.py` runs every pre-flight check the scoring job runs, without scoring — wire it into a promotion gate.
 5. **Score** — A Spark Scala SQL UDF (`drools_score`) compiles the DMN once per task (broadcast XML + `ConcurrentHashMap` cache) and returns a `Map[String,String]` of every decision result. The notebook reads `spark.table(input_view)`, builds the input map by name-matching, evaluates once per row, then extracts each requested decision into the right output column.
@@ -44,7 +44,7 @@ databricks.yml          # Databricks Asset Bundle entrypoint
 
 ### Option 1 — Run the scoring pipeline on Databricks
 
-Prerequisites: a Databricks workspace with Unity Catalog, the Databricks CLI configured with a profile (the bundle defaults to a profile named `services-bureau` — replace with your own in `databricks.yml`), and permission to create a cluster.
+Prerequisites: a Databricks workspace with Unity Catalog, the Databricks CLI configured with a profile (the bundle defaults to `DEFAULT` — override with `--profile <your-profile>` or edit `databricks.yml`), and permission to create a cluster.
 
 1. Configure your CLI profile (substitute your own profile name):
    ```bash
@@ -59,7 +59,7 @@ Prerequisites: a Databricks workspace with Unity Catalog, the Databricks CLI con
    - `01_setup_catalog.py` — creates the catalog, schema, and DMN volume.
    - `02_synthetic_data_10M.py` — generates 10M synthetic returns (24 columns), the `rule_versions` / `scored_results` / `evaluation_log` Delta tables, and the `scoring_input_v3_1` materialized view.
    - `00_validate_binding.py` *(optional)* — pre-flight a `version_id` before promoting it (DMN compile, binding validation, MV column coverage). Wire into a promotion gate.
-   - `04_batch_scoring.py` — binding-driven batch scoring against the `ACTIVE` DMN. Deployed as job `834669542144086`.
+   - `04_batch_scoring.py` — binding-driven batch scoring against the `ACTIVE` DMN. Wire it up as a job and surface the job ID via `SCORING_JOB_ID` to the rules-editor app.
    - `08_cleanup_archived_mvs.py` *(periodic)* — lists `scoring_input_*` materialized views by reference status and drops candidates older than `retention_days` (default 30) when `cleanup_confirm=true`.
 
 ### Option 2 — Run the rule-editor app
@@ -70,7 +70,7 @@ The editor can run locally or be deployed as a Databricks App. See [`apps/rules-
 
 - **Asset Bundle:** `databricks.yml` — targets `dev` (default) and `prod`. Both reference a workspace profile by name; replace with your own.
 - **Cluster:** `Drools Runner v2` — DBR 17.3.x-scala2.13, Single User, driver `m5d.xlarge`, 4× `c5.4xlarge` workers fixed, **Standard runtime** (not Photon — Drools is opaque to Catalyst), `drools-dmn-shaded-2.0.0.jar` attached as a library. No init scripts.
-- **Storage:** Unity Catalog — catalog `services_bureau_catalog`, schema `irs_rrp`. Delta tables `tax_returns`, `scored_results`, `rule_versions`, `evaluation_log`. DMN files and the shaded JAR live in the `dmn_rules` volume.
+- **Storage:** Unity Catalog — catalog `<your-catalog>`, schema `<your-schema>`. Delta tables `tax_returns`, `scored_results`, `rule_versions`, `evaluation_log`. DMN files and the shaded JAR live in the `<your-volume>` volume.
 - **App environment:** `apps/rules-editor/app.yaml` sets `DATABRICKS_WAREHOUSE_ID`, `DATABRICKS_CLUSTER_ID`, and `SCORING_NOTEBOOK_PATH` for the deployed app.
 
 ## Open design questions

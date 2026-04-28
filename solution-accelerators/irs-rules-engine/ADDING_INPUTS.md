@@ -72,7 +72,7 @@ Stored in `rule_versions.binding_json`:
 ```json
 {
   "version": 2,
-  "input_view": "services_bureau_catalog.irs_rrp.scoring_input_v3_1",
+  "input_view": "<your-catalog>.<your-schema>.scoring_input_v3_1",
   "outputs": {
     "scored_results": {
       "mode": "overwrite",
@@ -108,7 +108,7 @@ The DMN already knows about the columns the rule needs.
 
 1. **Edit the DMN.** Add the new `<dmn:rule>` row inside the existing
    decision table. Save to a new file in
-   `/Volumes/services_bureau_catalog/irs_rrp/dmn_rules/<filename>.dmn`.
+   `/Volumes/<your-catalog>/<your-schema>/<your-volume>/<filename>.dmn`.
 2. **Insert a `rule_versions` row** (`status='DRAFT'`) — copy the prior
    row's `binding_json` and `input_view` verbatim, point `dmn_path` at
    the new file, give it a new `version_id`.
@@ -117,8 +117,8 @@ The DMN already knows about the columns the rule needs.
    pre-flight check, and exits `SUCCESS` or `FAILED`.
 4. **Promote.** Set the new row to `ACTIVE` and the prior `ACTIVE` row to
    `ARCHIVED`. (One `ACTIVE` per rule set at a time.)
-5. **Run** the batch job (`834669542144086`). Use a small `proof_limit`
-   first if you want a quick smoke test.
+5. **Run** the batch job (the one wired to `04_batch_scoring.py`). Use a
+   small `proof_limit` first if you want a quick smoke test.
 
 No notebook change. No JAR rebuild. No MV change.
 
@@ -133,7 +133,7 @@ The new field drives a rule that doesn't yet exist in the DMN.
 If it's a brand-new field on `tax_returns`:
 
 ```sql
-ALTER TABLE services_bureau_catalog.irs_rrp.tax_returns
+ALTER TABLE <your-catalog>.<your-schema>.tax_returns
 ADD COLUMN crypto_income DOUBLE;
 ```
 
@@ -146,7 +146,7 @@ Don't mutate the live MV. Create the next-numbered one so the prior
 version stays runnable for rollback:
 
 ```sql
-CREATE MATERIALIZED VIEW services_bureau_catalog.irs_rrp.scoring_input_v3_2
+CREATE MATERIALIZED VIEW <your-catalog>.<your-schema>.scoring_input_v3_2
 COMMENT 'Scoring input for DMN v3.2-irm — adds crypto_income'
 AS
 SELECT
@@ -154,7 +154,7 @@ SELECT
   coalesce(agi, 0.0)            AS agi,
   -- ... all existing columns ...
   coalesce(crypto_income, 0.0)  AS crypto_income
-FROM services_bureau_catalog.irs_rrp.tax_returns;
+FROM <your-catalog>.<your-schema>.tax_returns;
 ```
 
 The DMN input name (`crypto_income`) **must** match the MV column name
@@ -174,11 +174,11 @@ In KIE Sandbox or the rule-editor app:
 Same as the no-new-input case, but the new row points at the new MV:
 
 ```sql
-INSERT INTO services_bureau_catalog.irs_rrp.rule_versions VALUES (
+INSERT INTO <your-catalog>.<your-schema>.rule_versions VALUES (
   'v3.2-irm', 'IRS Tax Return Review',
   '/Volumes/.../irs_tax_review_v3_2_irm.dmn',
   '<binding_json with input_view = scoring_input_v3_2>',
-  'services_bureau_catalog.irs_rrp.scoring_input_v3_2',
+  '<your-catalog>.<your-schema>.scoring_input_v3_2',
   'DRAFT', 'analyst@example.gov', current_timestamp(), NULL, NULL,
   'Adds crypto_income input + 2 new rules'
 );
@@ -323,14 +323,14 @@ results with explicit refresh control.
 
 | What | Where |
 |---|---|
-| DMN files | `/Volumes/services_bureau_catalog/irs_rrp/dmn_rules/` |
-| Shaded JAR | `/Volumes/services_bureau_catalog/irs_rrp/dmn_rules/drools-dmn-shaded-2.0.0.jar` |
-| Rule versions | `services_bureau_catalog.irs_rrp.rule_versions` |
-| Active scoring MV | `services_bureau_catalog.irs_rrp.scoring_input_v3_1` |
+| DMN files | `/Volumes/<your-catalog>/<your-schema>/<your-volume>/` |
+| Shaded JAR | `/Volumes/<your-catalog>/<your-schema>/<your-volume>/drools-dmn-shaded-2.0.0.jar` |
+| Rule versions | `<your-catalog>.<your-schema>.rule_versions` |
+| Active scoring MV | `<your-catalog>.<your-schema>.scoring_input_v3_1` |
 | Batch scoring notebook | `notebooks/04_batch_scoring.py` |
 | Binding validator | `notebooks/00_validate_binding.py` |
 | MV cleanup | `notebooks/08_cleanup_archived_mvs.py` |
-| Batch scoring job | `834669542144086` (cluster `0416-211848-8phgxyc0`) |
+| Batch scoring job | (set `SCORING_JOB_ID` in `apps/rules-editor/app.yaml` after creating the job) |
 
 ## What does NOT need to change
 

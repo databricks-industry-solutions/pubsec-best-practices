@@ -12,9 +12,11 @@
 
 # COMMAND ----------
 
-dbutils.widgets.text('proof_limit', '',     'Limit (blank = all)')
-dbutils.widgets.text('version_id',  '',     'Version ID (blank = ACTIVE)')
-dbutils.widgets.text('skip_refresh', 'false', 'skip_refresh (true|false)')
+dbutils.widgets.text('proof_limit',  '',                       'Limit (blank = all)')
+dbutils.widgets.text('version_id',   '',                       'Version ID (blank = ACTIVE)')
+dbutils.widgets.text('skip_refresh', 'false',                   'skip_refresh (true|false)')
+dbutils.widgets.text('catalog',      'main', 'UC catalog')
+dbutils.widgets.text('schema',       'irs_rrp',                 'UC schema')
 
 # COMMAND ----------
 
@@ -36,8 +38,8 @@ sys.path.insert(0, os.path.dirname(dbutils.notebook.entry_point.getDbutils().not
 
 import json
 
-CATALOG = "services_bureau_catalog"
-SCHEMA  = "irs_rrp"
+CATALOG = dbutils.widgets.get('catalog').strip() or 'main'
+SCHEMA  = dbutils.widgets.get('schema').strip()  or 'irs_rrp'
 
 _version_param = dbutils.widgets.get('version_id').strip()
 

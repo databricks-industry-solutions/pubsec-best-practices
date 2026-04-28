@@ -20,7 +20,7 @@ const STORY = [
     color: '#2563eb',
     nodes: [
       { id: 'editor', label: 'KIE DMN\nEditor', sub: 'Apache KIE 10.1.0', icon: 'edit' },
-      { id: 'uc', label: 'UC Volume', sub: 'services_bureau_catalog', icon: 'volume' },
+      { id: 'uc', label: 'UC Volume', sub: 'Unity Catalog', icon: 'volume' },
       { id: 'versions', label: 'rule_versions\nDelta Table', sub: 'DRAFT → ACTIVE', icon: 'table' },
     ],
     note: 'Business analysts edit decision tables visually. Versions saved to Unity Catalog.',

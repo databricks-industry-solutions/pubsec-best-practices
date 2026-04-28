@@ -38,7 +38,7 @@ apps/rules-editor/
 - Single-User cluster with the Drools shaded JAR attached (for test scoring via
   `04_batch_scoring`) — see `../../notebooks/README.md`
 - UC resources seeded by `notebooks/01_setup_catalog.py` (default catalog
-  `services_bureau_catalog`, schema `irs_rrp`, volume `dmn_rules`, and
+  `<your-catalog>`, schema `<your-schema>`, volume `<your-volume>`, and
   `rule_versions`)
 
 ## Local development
@@ -84,8 +84,8 @@ shipped in this repo are intentionally placeholders — replace them.
 | `DATABRICKS_CONFIG_PROFILE` | CLI profile to use locally (or `DATABRICKS_HOST` + `DATABRICKS_TOKEN`) |
 
 Unity Catalog targets are hardcoded in `server/services/databricks.py`:
-catalog `services_bureau_catalog`, schema `irs_rrp`, volume
-`/Volumes/services_bureau_catalog/irs_rrp/dmn_rules`. Edit those constants
+catalog `<your-catalog>`, schema `<your-schema>`, volume
+`/Volumes/<your-catalog>/<your-schema>/<your-volume>`. Edit those constants
 if your deployment uses different names.
 
 Authentication for the `WorkspaceClient` follows the standard Databricks SDK
@@ -128,14 +128,14 @@ All routes are mounted under `/api`:
   `POST /dmn/save` (new `DRAFT`), `POST /dmn/promote` (atomic `ACTIVE` swap +
   archive), `POST /dmn/evaluate` (pure-Python mirror of the 21 DMN rules for
   instant feedback), `GET /dmn/sample-returns`, `POST /dmn/dedup`.
-- `scoring` — `POST /scoring/run` (triggers job `834669542144086` via
+- `scoring` — `POST /scoring/run` (triggers the job named in `SCORING_JOB_ID` via
   `run_now` with `proof_limit` / `version_id` notebook params),
   `GET /scoring/run/{run_id}`, `GET /scoring/history`, `GET /scoring/results`.
 
 ## Relationship to the batch pipeline
 
 This app is for **authoring and testing** rules. It writes DMN XML to
-`/Volumes/services_bureau_catalog/irs_rrp/dmn_rules/` and records versions in
-`services_bureau_catalog.irs_rrp.rule_versions`. Full-fleet scoring is done by
+`/Volumes/<your-catalog>/<your-schema>/<your-volume>/` and records versions in
+`<your-catalog>.<your-schema>.rule_versions`. Full-fleet scoring is done by
 `notebooks/04_batch_scoring.py`, which reads the same Delta table and evaluates
 all 10M rows with Drools. See `../../notebooks/README.md`.

@@ -8,9 +8,16 @@
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC USE CATALOG services_bureau_catalog;
-# MAGIC USE SCHEMA irs_rrp;
+dbutils.widgets.text('catalog', 'main', 'UC catalog')
+dbutils.widgets.text('schema',  'irs_rrp',                 'UC schema')
+dbutils.widgets.text('volume',  'dmn_rules',               'UC volume')
+
+CATALOG = dbutils.widgets.get('catalog').strip() or 'main'
+SCHEMA  = dbutils.widgets.get('schema').strip()  or 'irs_rrp'
+VOLUME  = dbutils.widgets.get('volume').strip()  or 'dmn_rules'
+
+spark.sql(f"USE CATALOG {CATALOG}")
+spark.sql(f"USE SCHEMA {SCHEMA}")
 
 # COMMAND ----------
 
@@ -190,85 +197,85 @@ result = df.select(
 )
 
 result.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(
-    "services_bureau_catalog.irs_rrp.tax_returns"
+    f"{CATALOG}.{SCHEMA}.tax_returns"
 )
-count = spark.table("services_bureau_catalog.irs_rrp.tax_returns").count()
+count = spark.table(f"{CATALOG}.{SCHEMA}.tax_returns").count()
 print(f"✅ tax_returns: {count} rows")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC -- Verify distributions
-# MAGIC SELECT
-# MAGIC     filing_status,
-# MAGIC     count(*) as count,
-# MAGIC     round(avg(agi)) as avg_agi,
-# MAGIC     round(avg(deduction_ratio), 3) as avg_ded_ratio,
-# MAGIC     sum(case when prior_audit then 1 else 0 end) as prior_audits,
-# MAGIC     sum(case when foreign_income > 0 then 1 else 0 end) as has_foreign,
-# MAGIC     sum(case when se_income > 0 then 1 else 0 end) as has_se,
-# MAGIC     sum(case when digital_asset_transactions > 0 then 1 else 0 end) as has_crypto,
-# MAGIC     round(avg(reported_income_gap), 3) as avg_income_gap,
-# MAGIC     sum(case when years_not_filed > 0 then 1 else 0 end) as non_filers,
-# MAGIC     sum(case when employment_type = 'CASH_INTENSIVE' then 1 else 0 end) as cash_intensive
-# MAGIC FROM services_bureau_catalog.irs_rrp.tax_returns
-# MAGIC GROUP BY filing_status
-# MAGIC ORDER BY count DESC
+display(spark.sql(f"""
+    SELECT
+        filing_status,
+        count(*) as count,
+        round(avg(agi)) as avg_agi,
+        round(avg(deduction_ratio), 3) as avg_ded_ratio,
+        sum(case when prior_audit then 1 else 0 end) as prior_audits,
+        sum(case when foreign_income > 0 then 1 else 0 end) as has_foreign,
+        sum(case when se_income > 0 then 1 else 0 end) as has_se,
+        sum(case when digital_asset_transactions > 0 then 1 else 0 end) as has_crypto,
+        round(avg(reported_income_gap), 3) as avg_income_gap,
+        sum(case when years_not_filed > 0 then 1 else 0 end) as non_filers,
+        sum(case when employment_type = 'CASH_INTENSIVE' then 1 else 0 end) as cash_intensive
+    FROM {CATALOG}.{SCHEMA}.tax_returns
+    GROUP BY filing_status
+    ORDER BY count DESC
+"""))
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC -- Create scored results table
-# MAGIC CREATE TABLE IF NOT EXISTS services_bureau_catalog.irs_rrp.scored_results (
-# MAGIC   return_id STRING,
-# MAGIC   filing_status STRING,
-# MAGIC   agi DOUBLE,
-# MAGIC   audit_score DOUBLE,
-# MAGIC   recommended_action STRING,
-# MAGIC   dmn_version STRING,
-# MAGIC   scored_at TIMESTAMP
-# MAGIC )
-# MAGIC USING DELTA
-# MAGIC COMMENT 'Tax returns scored by Drools DMN engine';
+spark.sql(f"""
+    CREATE TABLE IF NOT EXISTS {CATALOG}.{SCHEMA}.scored_results (
+      return_id STRING,
+      filing_status STRING,
+      agi DOUBLE,
+      audit_score DOUBLE,
+      recommended_action STRING,
+      dmn_version STRING,
+      scored_at TIMESTAMP
+    )
+    USING DELTA
+    COMMENT 'Tax returns scored by Drools DMN engine'
+""")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC -- Create evaluation audit log table
-# MAGIC CREATE TABLE IF NOT EXISTS services_bureau_catalog.irs_rrp.evaluation_log (
-# MAGIC   evaluation_id STRING,
-# MAGIC   rule_version_id STRING,
-# MAGIC   return_id STRING,
-# MAGIC   filing_status STRING,
-# MAGIC   audit_score DOUBLE,
-# MAGIC   recommended_action STRING,
-# MAGIC   evaluated_at TIMESTAMP,
-# MAGIC   job_run_id STRING
-# MAGIC )
-# MAGIC USING DELTA
-# MAGIC COMMENT 'Audit trail of all rule evaluations';
+spark.sql(f"""
+    CREATE TABLE IF NOT EXISTS {CATALOG}.{SCHEMA}.evaluation_log (
+      evaluation_id STRING,
+      rule_version_id STRING,
+      return_id STRING,
+      filing_status STRING,
+      audit_score DOUBLE,
+      recommended_action STRING,
+      evaluated_at TIMESTAMP,
+      job_run_id STRING
+    )
+    USING DELTA
+    COMMENT 'Audit trail of all rule evaluations'
+""")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC -- Create rule versions governance table
-# MAGIC -- `binding_json` carries the v2 binding (input_view + outputs).
-# MAGIC -- `input_view` is denormalized for cleanup notebook joins; source of truth is the binding.
-# MAGIC CREATE TABLE IF NOT EXISTS services_bureau_catalog.irs_rrp.rule_versions (
-# MAGIC   version_id STRING,
-# MAGIC   rule_set_name STRING,
-# MAGIC   dmn_path STRING,
-# MAGIC   binding_json STRING,
-# MAGIC   input_view STRING,
-# MAGIC   status STRING COMMENT 'DRAFT | ACTIVE | ARCHIVED',
-# MAGIC   created_by STRING,
-# MAGIC   created_at TIMESTAMP,
-# MAGIC   promoted_by STRING,
-# MAGIC   promoted_at TIMESTAMP,
-# MAGIC   notes STRING
-# MAGIC )
-# MAGIC USING DELTA
-# MAGIC COMMENT 'Rule version governance — tracks DRAFT/ACTIVE/ARCHIVED lifecycle';
+# `binding_json` carries the v2 binding (input_view + outputs).
+# `input_view` is denormalized for cleanup notebook joins; source of truth is the binding.
+spark.sql(f"""
+    CREATE TABLE IF NOT EXISTS {CATALOG}.{SCHEMA}.rule_versions (
+      version_id STRING,
+      rule_set_name STRING,
+      dmn_path STRING,
+      binding_json STRING,
+      input_view STRING,
+      status STRING COMMENT 'DRAFT | ACTIVE | ARCHIVED',
+      created_by STRING,
+      created_at TIMESTAMP,
+      promoted_by STRING,
+      promoted_at TIMESTAMP,
+      notes STRING
+    )
+    USING DELTA
+    COMMENT 'Rule version governance — tracks DRAFT/ACTIVE/ARCHIVED lifecycle'
+""")
 
 # COMMAND ----------
 
@@ -287,38 +294,38 @@ print(f"✅ tax_returns: {count} rows")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC CREATE MATERIALIZED VIEW IF NOT EXISTS services_bureau_catalog.irs_rrp.scoring_input_v3_1
-# MAGIC COMMENT 'Scoring input for DMN v3.1-irm — flattened, defaults applied'
-# MAGIC AS
-# MAGIC SELECT
-# MAGIC   return_id,
-# MAGIC   filing_status,
-# MAGIC   coalesce(agi, 0.0)                       AS agi,
-# MAGIC   coalesce(total_deductions, 0.0)          AS total_deductions,
-# MAGIC   coalesce(deduction_ratio, 0.0)           AS deduction_ratio,
-# MAGIC   coalesce(charitable_ratio, 0.0)          AS charitable_ratio,
-# MAGIC   coalesce(se_income, 0.0)                 AS se_income,
-# MAGIC   coalesce(foreign_income, 0.0)            AS foreign_income,
-# MAGIC   coalesce(capital_gains, 0.0)             AS capital_gains,
-# MAGIC   coalesce(tax_credits, 0.0)               AS tax_credits,
-# MAGIC   coalesce(dependents, 0)                  AS dependents,
-# MAGIC   coalesce(prior_audit, false)             AS prior_audit,
-# MAGIC   coalesce(reported_income_gap, 0.0)       AS reported_income_gap,
-# MAGIC   coalesce(num_w2_forms, 0)                AS num_w2_forms,
-# MAGIC   coalesce(w2_agi_ratio, 0.0)              AS w2_agi_ratio,
-# MAGIC   coalesce(years_not_filed, 0)             AS years_not_filed,
-# MAGIC   coalesce(amended_returns_count, 0)       AS amended_returns_count,
-# MAGIC   coalesce(num_dependents_claimed, 0)      AS num_dependents_claimed,
-# MAGIC   coalesce(employment_type, 'W2')          AS employment_type,
-# MAGIC   coalesce(digital_asset_transactions, 0)  AS digital_asset_transactions,
-# MAGIC   coalesce(digital_asset_proceeds, 0.0)    AS digital_asset_proceeds
-# MAGIC FROM services_bureau_catalog.irs_rrp.tax_returns;
+spark.sql(f"""
+    CREATE MATERIALIZED VIEW IF NOT EXISTS {CATALOG}.{SCHEMA}.scoring_input_v3_1
+    COMMENT 'Scoring input for DMN v3.1-irm — flattened, defaults applied'
+    AS
+    SELECT
+      return_id,
+      filing_status,
+      coalesce(agi, 0.0)                       AS agi,
+      coalesce(total_deductions, 0.0)          AS total_deductions,
+      coalesce(deduction_ratio, 0.0)           AS deduction_ratio,
+      coalesce(charitable_ratio, 0.0)          AS charitable_ratio,
+      coalesce(se_income, 0.0)                 AS se_income,
+      coalesce(foreign_income, 0.0)            AS foreign_income,
+      coalesce(capital_gains, 0.0)             AS capital_gains,
+      coalesce(tax_credits, 0.0)               AS tax_credits,
+      coalesce(dependents, 0)                  AS dependents,
+      coalesce(prior_audit, false)             AS prior_audit,
+      coalesce(reported_income_gap, 0.0)       AS reported_income_gap,
+      coalesce(num_w2_forms, 0)                AS num_w2_forms,
+      coalesce(w2_agi_ratio, 0.0)              AS w2_agi_ratio,
+      coalesce(years_not_filed, 0)             AS years_not_filed,
+      coalesce(amended_returns_count, 0)       AS amended_returns_count,
+      coalesce(num_dependents_claimed, 0)      AS num_dependents_claimed,
+      coalesce(employment_type, 'W2')          AS employment_type,
+      coalesce(digital_asset_transactions, 0)  AS digital_asset_transactions,
+      coalesce(digital_asset_proceeds, 0.0)    AS digital_asset_proceeds
+    FROM {CATALOG}.{SCHEMA}.tax_returns
+""")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC REFRESH MATERIALIZED VIEW services_bureau_catalog.irs_rrp.scoring_input_v3_1;
+spark.sql(f"REFRESH MATERIALIZED VIEW {CATALOG}.{SCHEMA}.scoring_input_v3_1")
 
 # COMMAND ----------
 
@@ -329,7 +336,7 @@ import json
 
 V31_BINDING = {
     "version": 2,
-    "input_view": "services_bureau_catalog.irs_rrp.scoring_input_v3_1",
+    "input_view": f"{CATALOG}.{SCHEMA}.scoring_input_v3_1",
     "outputs": {
         "scored_results": {
             "mode": "overwrite",
@@ -349,9 +356,9 @@ V31_BINDING = {
 initial_version = spark.createDataFrame([Row(
     version_id="v3.1-irm",
     rule_set_name="IRS Tax Return Review",
-    dmn_path="/Volumes/services_bureau_catalog/irs_rrp/dmn_rules/irs_tax_review_v3_1_irm.dmn",
+    dmn_path=f"/Volumes/{CATALOG}/{SCHEMA}/{VOLUME}/irs_tax_review_v3_1_irm.dmn",
     binding_json=json.dumps(V31_BINDING),
-    input_view="services_bureau_catalog.irs_rrp.scoring_input_v3_1",
+    input_view=f"{CATALOG}.{SCHEMA}.scoring_input_v3_1",
     status="ACTIVE",
     created_by="system",
     created_at=datetime.now(),
@@ -360,7 +367,7 @@ initial_version = spark.createDataFrame([Row(
     notes="21-rule IRM 25.1.2 review with chained Recommended Action — v2 binding (input_view contract)"
 )])
 
-initial_version.write.mode("append").saveAsTable("services_bureau_catalog.irs_rrp.rule_versions")
+initial_version.write.mode("append").saveAsTable(f"{CATALOG}.{SCHEMA}.rule_versions")
 print("✅ Initial rule version seeded (v3.1-irm ACTIVE, v2 binding)")
 
 # COMMAND ----------

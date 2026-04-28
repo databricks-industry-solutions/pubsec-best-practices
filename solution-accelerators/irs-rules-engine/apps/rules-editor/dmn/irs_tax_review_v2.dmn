@@ -42,7 +42,7 @@
 
   <!--
     Tax_Return — all financial facts from the return.
-    Maps directly to columns in services_bureau_catalog.irs_rrp.tax_returns.
+    Maps directly to columns in <your-catalog>.<your-schema>.tax_returns.
   -->
   <dmn:itemDefinition id="_def_tax_return" name="Tax_Return" isCollection="false">
     <dmn:itemComponent id="_def_tr_agi" name="agi" isCollection="false">

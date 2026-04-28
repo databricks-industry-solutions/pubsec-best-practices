@@ -12,7 +12,9 @@
 
 # COMMAND ----------
 
-dbutils.widgets.text('version_id', '', 'Version ID (blank = ACTIVE)')
+dbutils.widgets.text('version_id', '',                       'Version ID (blank = ACTIVE)')
+dbutils.widgets.text('catalog',    'main', 'UC catalog')
+dbutils.widgets.text('schema',     'irs_rrp',                 'UC schema')
 
 # COMMAND ----------
 
@@ -22,8 +24,8 @@ dbutils.widgets.text('version_id', '', 'Version ID (blank = ACTIVE)')
 
 import json
 
-CATALOG = "services_bureau_catalog"
-SCHEMA  = "irs_rrp"
+CATALOG = dbutils.widgets.get('catalog').strip() or 'main'
+SCHEMA  = dbutils.widgets.get('schema').strip()  or 'irs_rrp'
 
 _version_param = dbutils.widgets.get('version_id').strip()
 where = (f"version_id = '{_version_param}'" if _version_param

@@ -12,12 +12,12 @@ targets:
     default: true
     mode: development
     workspace:
-      profile: services-bureau
+      profile: DEFAULT
 
   prod:
     mode: production
     workspace:
-      profile: services-bureau
+      profile: DEFAULT
 
 resources:
   apps:

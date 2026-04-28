@@ -75,7 +75,7 @@ Trigger (schedule or manual)
 - Only one rule set ACTIVE at a time (mirrors IRS governance requirement)
 - Full audit trail: who changed what, when, why
 
-**Delta tables (under `services_bureau_catalog.irs_rrp`):**
+**Delta tables (under `<your-catalog>.<your-schema>`):**
 ```sql
 -- Rule version metadata + binding
 CREATE TABLE rule_versions (
@@ -119,8 +119,8 @@ CREATE TABLE evaluation_log (
 
 ### 5. Batch Processing Pipeline (Lakeflow)
 
-**The production-scale pattern** — `notebooks/04_batch_scoring.py`, deployed as
-job `834669542144086`. The notebook is **binding-driven**: the input view, the
+**The production-scale pattern** — `notebooks/04_batch_scoring.py`, intended
+to be deployed as a Lakeflow job. The notebook is **binding-driven**: the input view, the
 output decisions/columns, and any post-write expressions all come from
 `rule_versions.binding_json` (v2). Adding a rule is a DMN edit + (sometimes) a
 new versioned input view; the notebook itself never changes.
@@ -130,7 +130,7 @@ new versioned input view; the notebook itself never changes.
 #    DMN XML + v2 binding + input_view from rule_versions
 row = spark.sql("""
     SELECT version_id, dmn_path, binding_json, input_view
-    FROM services_bureau_catalog.irs_rrp.rule_versions
+    FROM <your-catalog>.<your-schema>.rule_versions
     WHERE status = 'ACTIVE' ORDER BY promoted_at DESC LIMIT 1
 """).first()
 binding = json.loads(row.binding_json)

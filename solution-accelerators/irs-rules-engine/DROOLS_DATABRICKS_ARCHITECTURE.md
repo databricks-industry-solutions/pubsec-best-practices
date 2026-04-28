@@ -61,7 +61,7 @@ FICO Blaze Advisor is being replaced. The IRS needs an open-source, open-standar
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Unity Catalog — services_bureau_catalog.irs_rrp                        │
+│  Unity Catalog — <your-catalog>.<your-schema>                        │
 │                                                                         │
 │  tax_returns (10M raw rows)                                             │
 │         │                                                               │
@@ -263,7 +263,7 @@ drools-dmn-shaded-2.0.0.jar (~45MB)
 └── META-INF/kie.conf     (merged from all Drools modules)
 ```
 
-Stored in UC Volume at `/Volumes/services_bureau_catalog/irs_rrp/dmn_rules/drools-dmn-shaded-2.0.0.jar`. Installed as a cluster library — no init scripts needed.
+Stored in UC Volume at `/Volumes/<your-catalog>/<your-schema>/<your-volume>/drools-dmn-shaded-2.0.0.jar`. Installed as a cluster library — no init scripts needed.
 
 ## The Rules
 
@@ -350,5 +350,5 @@ Two clusters are usable:
 | `notebooks/_binding_preflight.py` | Shared `preflight()` helper — JSON schema validation, expression whitelist, MV column coverage, decision name match |
 | `/Volumes/.../dmn_rules/drools-dmn-shaded-2.0.0.jar` | The shaded Drools JAR |
 | `/Volumes/.../dmn_rules/irs_tax_review_v3_1_irm.dmn` | The active DMN (v3.1-irm: 21 IRM rules + chained `Recommended Action`) |
-| `services_bureau_catalog.irs_rrp.scoring_input_v3_1` | Materialized view — input contract for v3.1-irm |
-| `services_bureau_catalog.irs_rrp.rule_versions` | Governance — `version_id`, `dmn_path`, `binding_json`, `input_view`, `status` (DRAFT/ACTIVE/ARCHIVED) |
+| `<your-catalog>.<your-schema>.scoring_input_v3_1` | Materialized view — input contract for v3.1-irm |
+| `<your-catalog>.<your-schema>.rule_versions` | Governance — `version_id`, `dmn_path`, `binding_json`, `input_view`, `status` (DRAFT/ACTIVE/ARCHIVED) |
