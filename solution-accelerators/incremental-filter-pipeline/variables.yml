@@ -1,0 +1,10 @@
+variables:
+  catalog:
+    description: "Unity Catalog catalog for pipeline metadata and target tables"
+    default: "main"
+  schema:
+    description: "Schema for pipeline metadata and target tables"
+    default: "tmp"
+  checkpoint_base:
+    description: "Base path for streaming checkpoints"
+    default: "/tmp/incremental_filter_pipeline/checkpoints"

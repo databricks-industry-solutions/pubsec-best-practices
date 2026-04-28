@@ -1,0 +1,41 @@
+bundle:
+  name: incremental-filter-pipeline
+
+workspace:
+  host: ${var.databricks_host}
+
+variables:
+  databricks_host:
+    description: Databricks workspace URL
+  catalog:
+    description: Unity Catalog catalog for pipeline metadata and target tables
+    default: main
+  schema:
+    description: Schema for pipeline metadata and target tables
+    default: tmp
+  checkpoint_base:
+    description: Base path for streaming checkpoints
+    default: /tmp/incremental_filter_pipeline/checkpoints
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    default: true
+    variables:
+      databricks_host: ${DATABRICKS_HOST}
+      catalog: main
+      schema: tmp
+
+  staging:
+    variables:
+      databricks_host: ${DATABRICKS_HOST}
+      catalog: main
+      schema: staging
+
+  prod:
+    variables:
+      databricks_host: ${DATABRICKS_HOST}
+      catalog: my_catalog
+      schema: pipeline_meta
