@@ -16,7 +16,7 @@ env:
   - name: SCORING_JOB_ID
     value: "<your-job-id>"
   - name: SCORING_NOTEBOOK_PATH
-    value: "/Workspace/Shared/irs_rules_engine/04_batch_scoring"
+    value: "/Workspace/Shared/fraud_rules_engine/04_batch_scoring"
   - name: UC_CATALOG
     value: "main"
   - name: UC_SCHEMA

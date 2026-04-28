@@ -1,5 +1,5 @@
 bundle:
-  name: irs-rules-engine
+  name: fraud-rules-engine
 
 include:
   - resources/*.yml
@@ -21,7 +21,7 @@ targets:
 
 resources:
   apps:
-    irs_rules_engine:
-      name: "irs-rules-engine-${bundle.target}"
-      description: "Tax Return Review Rules Engine — Blaze Advisor replacement demo"
+    fraud_rules_engine:
+      name: "fraud-rules-engine-${bundle.target}"
+      description: "Fraud Rules Engine — Blaze Advisor replacement demo"
       source_code_path: .

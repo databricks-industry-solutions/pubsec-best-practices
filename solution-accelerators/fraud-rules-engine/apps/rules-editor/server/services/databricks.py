@@ -18,7 +18,7 @@ CLUSTER_ID = os.environ.get('DATABRICKS_CLUSTER_ID', '')
 JOB_ID = int(os.environ.get('SCORING_JOB_ID', '0'))
 NOTEBOOK_PATH = os.environ.get(
   'SCORING_NOTEBOOK_PATH',
-  '/Workspace/Shared/irs_rules_engine/04_batch_scoring',
+  '/Workspace/Shared/fraud_rules_engine/04_batch_scoring',
 )
 
 

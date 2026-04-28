@@ -88,7 +88,7 @@ The editor can run locally or be deployed as a Databricks App. See [`apps/rules-
 | Doc | What's in it |
 |---|---|
 | [`DROOLS_DATABRICKS_ARCHITECTURE.md`](./DROOLS_DATABRICKS_ARCHITECTURE.md) | Deep architecture: shaded JAR, UDF caching pattern, scaling to 10M, cluster sizing |
-| [`IRS_RULES_ENGINE_ARCHITECTURE.md`](./IRS_RULES_ENGINE_ARCHITECTURE.md) | Broader POC story — mapping Blaze Advisor capabilities to Databricks equivalents |
+| [`FRAUD_RULES_ENGINE_ARCHITECTURE.md`](./FRAUD_RULES_ENGINE_ARCHITECTURE.md) | Broader POC story — mapping Blaze Advisor capabilities to Databricks equivalents |
 | [`ADDING_INPUTS.md`](./ADDING_INPUTS.md) | How to add rules, inputs, and output tables — DMN edit + (sometimes) input-view edit + promote |
 | [`apps/rules-editor/README.md`](./apps/rules-editor/README.md) | Rule-editor app setup and development |
 
