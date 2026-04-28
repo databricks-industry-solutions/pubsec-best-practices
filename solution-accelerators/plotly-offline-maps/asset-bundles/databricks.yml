@@ -1,0 +1,26 @@
+bundle:
+  name: plotly-offline-maps
+
+workspace:
+  host: ${var.databricks_host}
+
+variables:
+  databricks_host:
+    description: Databricks workspace URL
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    default: true
+    variables:
+      databricks_host: ${DATABRICKS_HOST}
+
+  staging:
+    variables:
+      databricks_host: ${DATABRICKS_HOST}
+
+  prod:
+    variables:
+      databricks_host: ${DATABRICKS_HOST}

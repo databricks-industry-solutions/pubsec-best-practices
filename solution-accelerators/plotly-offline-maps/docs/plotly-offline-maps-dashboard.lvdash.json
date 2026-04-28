@@ -1,0 +1,100 @@
+{
+  "datasets": [
+    {
+      "name": "ds_states",
+      "displayName": "US States",
+      "queryLines": [
+        "SELECT state_abbr, metric_value FROM main.default.plotly_maps_states"
+      ]
+    },
+    {
+      "name": "ds_counties",
+      "displayName": "US Counties",
+      "queryLines": [
+        "SELECT county_fips, metric_value FROM main.default.plotly_maps_counties"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "page_maps",
+      "displayName": "Maps",
+      "layout": [
+        {
+          "widget": {
+            "name": "title_text",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Plotly Offline Maps — Dashboard Alternative\n",
+                "US state and county choropleth maps rendered server-side. No internet access required."
+              ]
+            }
+          },
+          "position": { "x": 0, "y": 0, "width": 12, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "states_map",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_states",
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "choropleth-map",
+              "encodings": {
+                "region": {
+                  "fieldName": "state_abbr",
+                  "regionType": "mapbox-v4-postal-us"
+                },
+                "color": {
+                  "fieldName": "metric_value",
+                  "displayName": "Metric Value"
+                }
+              },
+              "frame": { "showTitle": true, "title": "US States Choropleth" }
+            }
+          },
+          "position": { "x": 0, "y": 2, "width": 6, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "counties_map",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_counties",
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "choropleth-map",
+              "encodings": {
+                "region": {
+                  "fieldName": "county_fips",
+                  "regionType": "mapbox-v4-fips-us"
+                },
+                "color": {
+                  "fieldName": "metric_value",
+                  "displayName": "Metric Value"
+                }
+              },
+              "frame": { "showTitle": true, "title": "US Counties Choropleth" }
+            }
+          },
+          "position": { "x": 6, "y": 2, "width": 6, "height": 6 }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ]
+}

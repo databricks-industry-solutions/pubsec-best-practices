@@ -1,0 +1,13 @@
+resources:
+  jobs:
+    address_distance_setup:
+      name: address-distance — setup
+      description: One-time setup — creates volume, loads gazetteer and demo table.
+      tasks:
+        - task_key: setup
+          notebook_task:
+            notebook_path: ../../../notebooks/Address Distance - Setup
+            base_parameters:
+              catalog: ${var.catalog}
+              schema:  ${var.schema}
+              volume:  ${var.volume}

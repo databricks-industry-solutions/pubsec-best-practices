@@ -1,0 +1,36 @@
+{
+  "datasets": [
+    {
+      "name": "ds_distances",
+      "displayName": "Address Distances",
+      "queryLines": [
+        "SELECT id, label, address, city, state, zip, lat, lon, anchor_label, anchor_lat, anchor_lon, miles, km\n",
+        "FROM main.default.address_distances\n",
+        "ORDER BY miles"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "page_distances",
+      "displayName": "Address Distance",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Address Distance\n",
+                "Anchor vs. comparison addresses. Native Lakeview map — server-rendered, air-gap safe.\n",
+                "\n",
+                "Add a **Map** visualization with Latitude=`lat`, Longitude=`lon`, Color=`miles`, Tooltip=`label`, `city`, `miles`."
+              ]
+            }
+          },
+          "position": { "x": 0, "y": 0, "width": 12, "height": 3 }
+        }
+      ]
+    }
+  ]
+}
