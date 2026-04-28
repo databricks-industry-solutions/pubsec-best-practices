@@ -44,17 +44,25 @@ databricks.yml          # Databricks Asset Bundle entrypoint
 
 ### Option 1 — Run the scoring pipeline on Databricks
 
-Prerequisites: a Databricks workspace with Unity Catalog, the Databricks CLI configured with a profile (the bundle defaults to `DEFAULT` — override with `--profile <your-profile>` or edit `databricks.yml`), and permission to create a cluster.
+Prerequisites: a Databricks workspace with Unity Catalog, the Databricks CLI configured with a profile, and permission to create a cluster.
 
 1. Configure your CLI profile (substitute your own profile name):
    ```bash
    databricks auth login --profile <your-profile>
    ```
-2. Deploy the bundle:
+2. Copy `.env.local.example` to `.env.local` and fill in your workspace values
+   (CLI profile, UC catalog/schema/volume, warehouse/cluster/job IDs). All
+   tooling (`databricks bundle deploy`, `apps/rules-editor/deploy.sh`, the app
+   itself) reads from this file. It is gitignored.
    ```bash
-   databricks bundle deploy --profile <your-profile>
+   cp .env.local.example .env.local
+   $EDITOR .env.local
    ```
-3. On a cluster running DBR 17.3 with the shaded JAR attached as a library, run the notebooks in order:
+3. Deploy the bundle (`./dev.sh` sources `.env.local` first):
+   ```bash
+   ./dev.sh databricks bundle deploy
+   ```
+4. On a cluster running DBR 17.3 with the shaded JAR attached as a library, run the notebooks in order:
    - `06_build_drools_shaded_jar.py` — first time only: builds `drools-dmn-shaded-2.0.0.jar` on-cluster and copies it to the UC Volume. Rebuild only when upgrading Drools.
    - `01_setup_catalog.py` — creates the catalog, schema, and DMN volume.
    - `02_synthetic_data_10M.py` — generates 10M synthetic returns (24 columns), the `rule_versions` / `scored_results` / `evaluation_log` Delta tables, and the `scoring_input_v3_1` materialized view.

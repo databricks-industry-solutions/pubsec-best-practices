@@ -9,6 +9,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Source .env.local from repo root if present, so deploys pick up workspace
+# IDs without having to manually export them. Forkers without .env.local
+# fall back to whatever is already in the shell environment.
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+if [ -f "$REPO_ROOT/.env.local" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$REPO_ROOT/.env.local"
+  set +a
+fi
+
 # Configurable via env. Override before running for your own workspace.
 PROFILE="${DATABRICKS_CONFIG_PROFILE:-DEFAULT}"
 APP_NAME="${APP_NAME:-irs-rules-editor}"

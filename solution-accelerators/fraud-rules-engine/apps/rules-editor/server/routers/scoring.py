@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from databricks.sdk.service.jobs import SubmitTask, NotebookTask
 
 from server.services.databricks import (
-  get_workspace_client, CATALOG, SCHEMA, JOB_ID,
+  get_workspace_client, CATALOG, SCHEMA, VOLUME, JOB_ID,
 )
 from server.services.sql import run_sql
 
@@ -95,8 +95,14 @@ async def run_scoring(req: RunScoringRequest = RunScoringRequest()):
   """Trigger the saved scoring job via run_now (runs as job owner, not SP)."""
   w = get_workspace_client()
   try:
-    # Build notebook parameters
-    notebook_params = {}
+    # Build notebook parameters. Always pass catalog/schema/volume from the
+    # app's environment so the job uses the same UC target the app is wired to,
+    # regardless of what's saved as the job's default widget values.
+    notebook_params = {
+      'catalog': CATALOG,
+      'schema': SCHEMA,
+      'volume': VOLUME,
+    }
     if req.limit is not None:
       notebook_params['proof_limit'] = str(req.limit)
     if req.version_id:

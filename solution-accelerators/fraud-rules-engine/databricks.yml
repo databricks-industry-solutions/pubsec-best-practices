@@ -4,20 +4,17 @@ bundle:
 include:
   - resources/*.yml
 
-# Both targets reference a Databricks CLI profile named in this file. Override
-# at deploy time with `databricks bundle deploy --profile <your-profile>` or
-# replace the values below with your own profile name.
+# No `profile:` set here — the bundle picks up $DATABRICKS_CONFIG_PROFILE
+# (or falls back to DEFAULT) from your shell. Set it in .env.local and
+# `set -a; source .env.local; set +a` before deploying. Or override per
+# deploy with `databricks bundle deploy --profile <name>`.
 targets:
   dev:
     default: true
     mode: development
-    workspace:
-      profile: DEFAULT
 
   prod:
     mode: production
-    workspace:
-      profile: DEFAULT
 
 resources:
   apps:
