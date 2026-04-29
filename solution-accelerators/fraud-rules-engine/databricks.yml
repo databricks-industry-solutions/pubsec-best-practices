@@ -1,0 +1,24 @@
+bundle:
+  name: fraud-rules-engine
+
+include:
+  - resources/*.yml
+
+# No `profile:` set here — the bundle picks up $DATABRICKS_CONFIG_PROFILE
+# (or falls back to DEFAULT) from your shell. Set it in .env.local and
+# `set -a; source .env.local; set +a` before deploying. Or override per
+# deploy with `databricks bundle deploy --profile <name>`.
+targets:
+  dev:
+    default: true
+    mode: development
+
+  prod:
+    mode: production
+
+resources:
+  apps:
+    fraud_rules_engine:
+      name: "fraud-rules-engine-${bundle.target}"
+      description: "Fraud Rules Engine — Blaze Advisor replacement demo"
+      source_code_path: .
