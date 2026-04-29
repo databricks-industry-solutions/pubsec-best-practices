@@ -286,7 +286,7 @@ null and prints the exact remediation hint.
 
 Don't. Create a new versioned MV (`scoring_input_v3_2`) for the new DMN.
 The old MV stays runnable as long as the old DMN's `rule_versions` row
-points at it. Use `08_cleanup_archived_mvs.py` (default 30-day retention)
+points at it. Use `extras/08_cleanup_archived_mvs.py` (default 30-day retention)
 to drop MVs whose only references are old `ARCHIVED` rows.
 
 ### Type mismatch between MV column and DMN input
@@ -329,7 +329,10 @@ results with explicit refresh control.
 | Active scoring MV | `<your-catalog>.<your-schema>.scoring_input_v3_1` |
 | Batch scoring notebook | `notebooks/04_batch_scoring.py` |
 | Binding validator | `notebooks/00_validate_binding.py` |
-| MV cleanup | `notebooks/08_cleanup_archived_mvs.py` |
+| MV cleanup | `notebooks/extras/08_cleanup_archived_mvs.py` |
+| Quickstart (build JAR) | `notebooks/quickstart/01_build_jar.py` |
+| Quickstart (score one table) | `notebooks/quickstart/02_score_one_table.py` |
+| Quickstart sample DMN | `notebooks/quickstart/sample_rules.dmn` |
 | Batch scoring job | (set `SCORING_JOB_ID` in `apps/rules-editor/app.yaml` after creating the job) |
 
 ## What does NOT need to change

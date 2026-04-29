@@ -50,7 +50,38 @@ cp -r client/build $DEPLOY_DIR/client/
 cp server/*.py $DEPLOY_DIR/server/
 cp server/routers/*.py $DEPLOY_DIR/server/routers/
 cp server/services/*.py $DEPLOY_DIR/server/services/
-cp app.yaml requirements.txt $DEPLOY_DIR/
+cp requirements.txt $DEPLOY_DIR/
+
+# Override app.yaml env values from the shell environment (sourced from
+# .env.local at the top of this script). For each `- name: FOO` block, if
+# $FOO is set in the shell, replace its `value:` line with the shell value.
+# This means .env.local is the single source of truth — forkers either fill
+# in app.yaml's defaults or set the same vars in their shell.
+python3 - <<'PYEOF' app.yaml "$DEPLOY_DIR/app.yaml"
+import os, re, sys
+src, dst = sys.argv[1], sys.argv[2]
+lines = open(src).read().splitlines(keepends=True)
+out = []
+i = 0
+name_re = re.compile(r'^(\s*)-\s*name:\s*(\S+)\s*$')
+val_re  = re.compile(r'^(\s*)value:\s*.*$')
+while i < len(lines):
+  out.append(lines[i])
+  m = name_re.match(lines[i])
+  if m and i + 1 < len(lines):
+    indent, varname = m.group(1), m.group(2)
+    nxt = lines[i + 1]
+    vm = val_re.match(nxt)
+    env_val = os.environ.get(varname)
+    if vm and env_val:
+      out.append(f'{vm.group(1)}value: "{env_val}"\n')
+      i += 2
+      continue
+  i += 1
+open(dst, 'w').writelines(out)
+PYEOF
+echo "app.yaml env values:"
+grep -E '^\s+value:' "$DEPLOY_DIR/app.yaml" | sed 's/^/  /'
 
 echo "Client JS: $(ls $DEPLOY_DIR/client/build/assets/*.js | xargs basename)"
 

@@ -19,7 +19,7 @@ work and require no refresh.
   - 4× `c5.4xlarge`, Standard runtime (not Photon — Drools is opaque to Catalyst)
   - DBR `17.3.x-scala2.13`
   - Library: `/Volumes/<catalog>/<schema>/<volume>/drools-dmn-shaded-2.0.0.jar`
-    (built by notebook 06; Drools 9.44.0.Final, shaded ANTLR/Eclipse/XStream/commons)
+    (built by `quickstart/01_build_jar.py`; Drools 9.44.0.Final, shaded ANTLR/Eclipse/XStream/commons)
   - Java 17 `--add-opens` flags on driver and executor extraJavaOptions
 - Databricks CLI profile configured (set `DATABRICKS_CONFIG_PROFILE` or pass `--profile`)
 
@@ -31,8 +31,20 @@ work and require no refresh.
 | 01 | `01_setup_catalog.py` | Bootstrap UC: `USE` catalog, create schema, create volume (driven by `catalog` / `schema` / `volume` widgets). DMN files are uploaded by the rules-editor app, not this notebook. | — | `<catalog>.<schema>` schema, volume `<volume>` | Once, first time. |
 | 02 | `02_synthetic_data_10M.py` | Generate **10,000,000** synthetic returns using Spark-native `rand`/`randn` (no Python loops). 24 columns covering all six IRM 25.1.2 categories. Also creates `scored_results`, `evaluation_log`, `rule_versions` (with `binding_json` + `input_view` columns) Delta tables, and the `scoring_input_v3_1` materialized view. Seeds the v3.1-irm row as ACTIVE with a v2 binding. | — | `tax_returns` (10M rows), `scoring_input_v3_1` MV, `scored_results`, `evaluation_log`, `rule_versions` (v3.1-irm seeded) | After 01. Re-run only when regenerating the synthetic dataset. |
 | 04 | `04_batch_scoring.py` | **Main production scoring notebook.** Binding-driven; the binding's `input_view` can be a TABLE, VIEW, or MATERIALIZED_VIEW. Loads the `ACTIVE` (or widget-selected) DMN + binding from `rule_versions`, validates the binding via the shared `preflight()` helper, registers a generic `Map[String,String] → Map[String,String]` Spark UDF (executor-cached `(model, runtime)`), repartitions to ~4× cores, scores once per row, writes each binding output table. ~2:21 warm for 10M rows on the Drools Runner cluster. | `rule_versions`, DMN volume, `input_view` (table/view/MV) | All binding `outputs.<table>` (typically `scored_results`) | Every full scoring run. |
-| 06 | `06_build_drools_shaded_jar.py` | Build `drools-dmn-shaded-2.0.0.jar` (Drools 9.44.0.Final, relocated ANTLR/Eclipse/XStream/commons, SLF4J + Jackson stripped) via embedded `pom.xml` + Maven 3.9.9 on the driver, then copy to `/Volumes/<catalog>/<schema>/<volume>/`. | — | `<volume>/drools-dmn-shaded-2.0.0.jar` | **Only once** to build the JAR, or when upgrading the Drools version. Restart the Drools Runner cluster after to pick up the new JAR. |
-| 08 | `08_cleanup_archived_mvs.py` | Lists every `scoring_input_*` MV in the schema and groups by reference status (active / draft / archived-recent / cleanup-candidate / orphan). With `cleanup_confirm=true`, drops candidates older than `retention_days` (default 30). Default run is dry-run / list-only. | `rule_versions`, `information_schema.tables` | Drops MVs only when `cleanup_confirm=true` | Periodically (e.g. monthly) to prune archived MVs. Always reviews dry-run first. |
+
+### `quickstart/` — happy-path "score one table with one DMN"
+
+| Notebook | Purpose | When to run |
+| --- | --- | --- |
+| `quickstart/01_build_jar.py` | Build `drools-dmn-shaded-2.0.0.jar` via Maven 3.9.9 on the driver using the repo's `drools-shaded/pom.xml`, copy to `/Volumes/<catalog>/<schema>/<volume>/`. | Once per workspace, or when upgrading the Drools version. Restart the cluster after. |
+| `quickstart/sample_rules.dmn` | Tiny seed DMN — 3 inputs (`agi`, `total_deductions`, `foreign_income`), 5 decisions ending in `Audit_Action`. Upload it to the Volume to drive `02_score_one_table` against any returns table. | — |
+| `quickstart/02_score_one_table.py` | Standalone scoring: widgets `dmn_path` / `input_table` / `output_table` / `row_limit`. No `rule_versions`, no `binding_json`, no MV. Auto-discovers DMN inputs/decisions, name-matches inputs to columns, writes one column per decision. | Anytime — proves the runtime works against your data with a single DMN. |
+
+### `extras/` — periodic operational notebooks
+
+| Notebook | Purpose | When to run |
+| --- | --- | --- |
+| `extras/08_cleanup_archived_mvs.py` | Lists every `scoring_input_*` MV in the schema and groups by reference status (active / draft / archived-recent / cleanup-candidate / orphan). With `cleanup_confirm=true`, drops candidates older than `retention_days` (default 30). Default run is dry-run / list-only. | Periodically (e.g. monthly) to prune archived MVs. Always reviews dry-run first. |
 
 The unnumbered `_binding_preflight.py` is a shared helper module imported
 by 00 and 04 via `%run`. Don't run it directly.

@@ -15,7 +15,7 @@
     cluster classpath. All evaluation logic lives in 04_batch_scoring.py
     (the inline %scala DroolsHolder cell).
 
-    To rebuild: run notebooks/06_build_drools_shaded_jar on the cluster.
+    To rebuild: run notebooks/quickstart/01_build_jar.py on the cluster.
     To upgrade Drools: bump drools.version below and rebuild.
   -->
 

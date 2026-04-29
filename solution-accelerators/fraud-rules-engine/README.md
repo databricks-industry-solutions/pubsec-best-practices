@@ -63,12 +63,20 @@ Prerequisites: a Databricks workspace with Unity Catalog, the Databricks CLI con
    ./dev.sh databricks bundle deploy
    ```
 4. On a cluster running DBR 17.3 with the shaded JAR attached as a library, run the notebooks in order:
-   - `06_build_drools_shaded_jar.py` — first time only: builds `drools-dmn-shaded-2.0.0.jar` on-cluster and copies it to the UC Volume. Rebuild only when upgrading Drools.
+   - `quickstart/01_build_jar.py` — first time only: builds `drools-dmn-shaded-2.0.0.jar` on-cluster and copies it to the UC Volume. Rebuild only when upgrading Drools.
    - `01_setup_catalog.py` — creates the catalog, schema, and DMN volume.
    - `02_synthetic_data_10M.py` — generates 10M synthetic returns (24 columns), the `rule_versions` / `scored_results` / `evaluation_log` Delta tables, and the `scoring_input_v3_1` materialized view.
    - `00_validate_binding.py` *(optional)* — pre-flight a `version_id` before promoting it (DMN compile, binding validation, MV column coverage). Wire into a promotion gate.
    - `04_batch_scoring.py` — binding-driven batch scoring against the `ACTIVE` DMN. Wire it up as a job and surface the job ID via `SCORING_JOB_ID` to the rules-editor app.
-   - `08_cleanup_archived_mvs.py` *(periodic)* — lists `scoring_input_*` materialized views by reference status and drops candidates older than `retention_days` (default 30) when `cleanup_confirm=true`.
+   - `extras/08_cleanup_archived_mvs.py` *(periodic)* — lists `scoring_input_*` materialized views by reference status and drops candidates older than `retention_days` (default 30) when `cleanup_confirm=true`.
+
+### Option 1.5 — Quickstart: score one table with one DMN
+
+Skip the binding contract, the `rule_versions` registry, and the materialized view. Just point a notebook at a DMN file and a UC table.
+
+1. Run `notebooks/quickstart/01_build_jar.py` once (per workspace) to build the shaded JAR and copy it to your UC Volume. Attach `drools-dmn-shaded-2.0.0.jar` to a DBR 17.3 cluster.
+2. Upload `notebooks/quickstart/sample_rules.dmn` (3 inputs: `agi`, `total_deductions`, `foreign_income`; 5 decisions ending in `Audit_Action`) to the Volume — or point the widget at any DMN whose input names match columns in your table.
+3. Run `notebooks/quickstart/02_score_one_table.py` with `dmn_path`, `input_table`, `output_table`. The notebook auto-discovers DMN inputs/decisions, name-matches them to columns, and writes one row per input row with one column per DMN decision.
 
 ### Option 2 — Run the rule-editor app
 

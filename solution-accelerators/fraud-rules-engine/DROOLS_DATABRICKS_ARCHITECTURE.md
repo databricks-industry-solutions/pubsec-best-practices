@@ -102,7 +102,7 @@ There are **no joins, no per-column SQL inside the binding**. All flattening, de
 - **Adding a column** is an MV change (a new versioned MV: `scoring_input_v3_2`), not a binding-syntax exercise.
 - **Validation is mechanical**: pre-flight (`notebooks/_binding_preflight.py`) DESCRIBEs the MV, asserts every DMN input has a name-matched column, and runs the same checks `04_batch_scoring.py` runs.
 - **Rollback is free**: each DMN version points at its own versioned MV, so promoting a new rule never breaks an old one.
-- **MV cleanup is safe**: `notebooks/08_cleanup_archived_mvs.py` lists MVs by reference status (active / draft / archived-recent / cleanup-candidate / orphan) and only drops candidates older than the retention window (default 30 days) when `cleanup_confirm=true`.
+- **MV cleanup is safe**: `notebooks/extras/08_cleanup_archived_mvs.py` lists MVs by reference status (active / draft / archived-recent / cleanup-candidate / orphan) and only drops candidates older than the retention window (default 30 days) when `cleanup_confirm=true`.
 
 The pre-flight whitelist also constrains what SQL can appear in optional `columns` overrides and `post_columns` — only `coalesce`, `cast`, `current_timestamp`, conditionals, and other read-only scalar functions are allowed; `select`, `from`, semicolons, and comments are rejected.
 
@@ -250,7 +250,7 @@ spark.udf.register("drools_score", {
 
 Maven resolution fails on Databricks clusters (missing `xmlpull:1.2.0` transitive dependency from Maven Central). The shaded JAR bundles all Drools dependencies into a single file and relocates conflicting namespaces.
 
-Built on-cluster via `notebooks/06_build_drools_shaded_jar.py`:
+Built on-cluster via `notebooks/quickstart/01_build_jar.py` (which reads `drools-shaded/pom.xml` from the repo):
 
 ```
 drools-dmn-shaded-2.0.0.jar (~45MB)
@@ -345,8 +345,10 @@ Two clusters are usable:
 | `notebooks/01_setup_catalog.py` | UC catalog, schema, volume bootstrap |
 | `notebooks/02_synthetic_data_10M.py` | 10M synthetic tax returns + `scoring_input_v3_1` MV + `rule_versions` seed (v3.1-irm v2 binding) |
 | `notebooks/04_batch_scoring.py` | Production batch scoring — reads `input_view` (table/view/MV), runs pre-flight, generic map UDF, multi-output writes. Does **not** refresh MVs (that requires DBSQL Pro/Serverless and runs out-of-band on a warehouse). |
-| `notebooks/06_build_drools_shaded_jar.py` | Builds the shaded JAR on-cluster (rare; only when upgrading Drools) |
-| `notebooks/08_cleanup_archived_mvs.py` | Lists scoring input MVs by reference status; drops cleanup candidates older than `retention_days` (default 30) when `cleanup_confirm=true` |
+| `notebooks/quickstart/01_build_jar.py` | Builds the shaded JAR on-cluster (rare; only when upgrading Drools) — reads `drools-shaded/pom.xml` from the repo |
+| `notebooks/quickstart/02_score_one_table.py` | Standalone "score one table with one DMN" — no binding, no `rule_versions`, no MV |
+| `notebooks/quickstart/sample_rules.dmn` | Tiny seed DMN (3 inputs / 5 decisions) for the quickstart |
+| `notebooks/extras/08_cleanup_archived_mvs.py` | Lists scoring input MVs by reference status; drops cleanup candidates older than `retention_days` (default 30) when `cleanup_confirm=true` |
 | `notebooks/_binding_preflight.py` | Shared `preflight()` helper — JSON schema validation, expression whitelist, MV column coverage, decision name match |
 | `/Volumes/.../dmn_rules/drools-dmn-shaded-2.0.0.jar` | The shaded Drools JAR |
 | `/Volumes/.../dmn_rules/irs_tax_review_v3_1_irm.dmn` | The active DMN (v3.1-irm: 21 IRM rules + chained `Recommended Action`) |
