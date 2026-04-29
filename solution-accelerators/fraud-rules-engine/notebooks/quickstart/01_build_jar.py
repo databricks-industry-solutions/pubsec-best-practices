@@ -28,10 +28,12 @@ import os, shutil, subprocess, sys, glob
 dbutils.widgets.text('catalog', 'main', 'UC catalog')
 dbutils.widgets.text('schema',  'irs_rrp',                 'UC schema')
 dbutils.widgets.text('volume',  'dmn_rules',               'UC volume')
+dbutils.widgets.text('pom_path', '', 'Path to pom.xml (blank = auto-locate from notebook path)')
 
 CATALOG     = dbutils.widgets.get('catalog').strip() or 'main'
 SCHEMA      = dbutils.widgets.get('schema').strip()  or 'irs_rrp'
 VOLUME      = dbutils.widgets.get('volume').strip()  or 'dmn_rules'
+POM_PATH    = dbutils.widgets.get('pom_path').strip()
 JAR_NAME    = "drools-dmn-shaded-2.0.0.jar"
 VOLUME_PATH = f"/Volumes/{CATALOG}/{SCHEMA}/{VOLUME}/{JAR_NAME}"
 BUILD_DIR   = "/tmp/drools-build"
@@ -43,29 +45,41 @@ MVN_VER     = "3.9.9"
 
 # MAGIC %md ## Step 1 — Locate and copy `drools-shaded/pom.xml` from the repo
 # MAGIC
-# MAGIC When this notebook runs as part of a Databricks Repo or Asset Bundle,
-# MAGIC the repo root is two levels above this notebook (`notebooks/quickstart/`).
-# MAGIC We walk up from `os.getcwd()` to find a parent that contains
-# MAGIC `drools-shaded/pom.xml`, then copy it into the Maven build dir.
+# MAGIC The repo root is two levels above this notebook (`notebooks/quickstart/`).
+# MAGIC We start from this notebook's workspace path (or the `pom_path` widget
+# MAGIC if set) and walk up to find a parent that contains `drools-shaded/pom.xml`,
+# MAGIC then copy it into the Maven build dir.
 
 # COMMAND ----------
 
-def _find_repo_root(start: str) -> str:
+def _find_pom(start: str) -> str:
   cur = os.path.abspath(start)
   for _ in range(8):  # walk up at most 8 levels
-    if os.path.isfile(os.path.join(cur, 'drools-shaded', 'pom.xml')):
-      return cur
+    candidate = os.path.join(cur, 'drools-shaded', 'pom.xml')
+    if os.path.isfile(candidate):
+      return candidate
     parent = os.path.dirname(cur)
     if parent == cur:
       break
     cur = parent
-  raise FileNotFoundError(
-    f"Could not locate drools-shaded/pom.xml walking up from {start}. "
-    "Run this notebook from inside the irs-rules-engine repo (Databricks Repo or bundle deploy)."
-  )
+  raise FileNotFoundError(f"Could not locate drools-shaded/pom.xml walking up from {start}.")
 
-REPO_ROOT = _find_repo_root(os.getcwd())
-SRC_POM   = os.path.join(REPO_ROOT, 'drools-shaded', 'pom.xml')
+if POM_PATH:
+  if not os.path.isfile(POM_PATH):
+    raise FileNotFoundError(f"pom_path widget = {POM_PATH!r} but file does not exist")
+  SRC_POM = POM_PATH
+else:
+  notebook_path = (
+    dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get()
+  )
+  notebook_dir_ws = os.path.dirname(notebook_path)
+  notebook_dir_fs = '/Workspace' + notebook_dir_ws if not notebook_dir_ws.startswith('/Workspace') else notebook_dir_ws
+  print(f"Notebook workspace path: {notebook_path}")
+  print(f"Searching from:          {notebook_dir_fs}")
+  try:
+    SRC_POM = _find_pom(notebook_dir_fs)
+  except FileNotFoundError:
+    SRC_POM = _find_pom(os.getcwd())  # bundle-deploy / Repo fallback
 
 os.makedirs(BUILD_DIR, exist_ok=True)
 shutil.copy2(SRC_POM, f"{BUILD_DIR}/pom.xml")
