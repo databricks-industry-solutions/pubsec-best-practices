@@ -3,14 +3,14 @@
 from pyspark.sql import functions as F
 from pyspark.sql.types import MapType, StringType
 
-DMN_FILE_PATH = "dbfs:/Volumes/dbx_practice_ws/default/dbx-practice-volume/customer-decision-v2.dmn"
-#INPUT_TABLE = "default.customer_dmn_input"
-#OUTPUT_TABLE = "default.customer_dmn_map_udf_output"
+DMN_FILE_PATH = "dbfs:/Volumes/services_bureau_catalog/irs_rrp/dmn_rules/customer-decision-v2.dmn"
+#INPUT_TABLE = "services_bureau_catalog.irs_rrp.customer_dmn_input"
+#OUTPUT_TABLE = "services_bureau_catalog.irs_rrp.customer_dmn_map_udf_output"
 #ROW_LIMIT = 1000
 #REPARTITION_COUNT = 2
 
-INPUT_TABLE = "default.customer_dmn_input_10m"
-OUTPUT_TABLE = "default.customer_dmn_map_udf_output_10m"
+INPUT_TABLE = "services_bureau_catalog.irs_rrp.customer_dmn_input_10m"
+OUTPUT_TABLE = "services_bureau_catalog.irs_rrp.customer_dmn_map_udf_output_10m"
 ROW_LIMIT = 0
 REPARTITION_COUNT = 200
 

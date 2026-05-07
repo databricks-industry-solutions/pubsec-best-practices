@@ -3,7 +3,7 @@ bundle:
 
 variables:
   jar_volume_path:
-    default: /Volumes/dbx_practice_ws/default/dbx-practice-volume/drools-databricks-dmn-map-udf-demo-2.2.0.jar
+    default: /Volumes/services_bureau_catalog/irs_rrp/dmn_rules/drools-databricks-dmn-map-udf-demo-2.2.0.jar
 
 resources:
   jobs:
@@ -11,12 +11,15 @@ resources:
       name: drools-databricks-dmn-map-udf-poc-job
       tasks:
         - task_key: run_dmn_map_udf_poc
-          new_cluster:
-            spark_version: 18.1.x-scala2.13
-            node_type_id: Standard_D4s_v3
-            num_workers: 4
-            data_security_mode: SINGLE_USER
-            single_user_name: siliconpot.architect@gmail.com
+          existing_cluster_id: 0416-211848-8phgxyc0
+          #new_cluster:
+          #  spark_version: 18.1.x-scala2.13
+          #  #node_type_id: Standard_D4s_v3
+          #  #spark_version: 17.3.x-scala2.12
+          #  node_type_id: "i3.xlarge"
+          #  num_workers: 4
+          #  data_security_mode: SINGLE_USER
+          #  single_user_name: lakshmi.chennuri@databricks.com
           libraries:
             - jar: ${var.jar_volume_path}
           notebook_task:
@@ -27,7 +30,6 @@ targets:
     mode: production
     default: true
     workspace:
-      #host: https://adb-7405609760217234.14.azuredatabricks.net
       host: https://fevm-services-bureau.cloud.databricks.com
-      root_path: /Workspace/drools-on-databricks-scala-java-udf-dmn-demo/.bundle
-      file_path: /Workspace/drools-on-databricks-scala-java-udf-dmn-demo
+      root_path: /Workspace/Shared/drools-on-databricks-scala-java-udf-dmn-demo/.bundle
+      file_path: /Workspace/Shared/drools-on-databricks-scala-java-udf-dmn-demo
