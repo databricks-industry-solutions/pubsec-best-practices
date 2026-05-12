@@ -1,0 +1,34 @@
+[project]
+name = "incremental-filter-pipeline"
+version = "0.1.0"
+description = "Config-driven incremental data pipeline with sensitive record filtering, MERGE/APPEND modes, schema evolution, and UC credential vending support"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+keywords = ["databricks", "delta-lake", "incremental", "pipeline", "filtering", "merge", "schema-evolution"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/databricks/pubsec-best-practices"
+Repository = "https://github.com/databricks/pubsec-best-practices"
+Issues = "https://github.com/databricks/pubsec-best-practices/issues"
+
+dependencies = [
+    "pyspark>=3.5.0",
+    "delta-spark>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
