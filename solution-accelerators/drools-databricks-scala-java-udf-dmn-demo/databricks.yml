@@ -1,0 +1,35 @@
+bundle:
+  name: drools-databricks-dmn-map-udf-demo
+
+variables:
+  jar_volume_path:
+    default: /Volumes/services_bureau_catalog/irs_rrp/dmn_rules/drools-databricks-dmn-map-udf-demo-2.2.0.jar
+
+resources:
+  jobs:
+    drools_dmn_map_udf_poc_job:
+      name: drools-databricks-dmn-map-udf-poc-job
+      tasks:
+        - task_key: run_dmn_map_udf_poc
+          existing_cluster_id: 0416-211848-8phgxyc0
+          #new_cluster:
+          #  spark_version: 18.1.x-scala2.13
+          #  #node_type_id: Standard_D4s_v3
+          #  #spark_version: 17.3.x-scala2.12
+          #  node_type_id: "i3.xlarge"
+          #  num_workers: 4
+          #  data_security_mode: SINGLE_USER
+          #  single_user_name: lakshmi.chennuri@databricks.com
+          libraries:
+            - jar: ${var.jar_volume_path}
+          notebook_task:
+            notebook_path: ${workspace.file_path}/databricks/notebooks/dmn_map_udf_poc
+
+targets:
+  dev:
+    mode: production
+    default: true
+    workspace:
+      host: https://fevm-services-bureau.cloud.databricks.com
+      root_path: /Workspace/Shared/drools-on-databricks-scala-java-udf-dmn-demo/.bundle
+      file_path: /Workspace/Shared/drools-on-databricks-scala-java-udf-dmn-demo

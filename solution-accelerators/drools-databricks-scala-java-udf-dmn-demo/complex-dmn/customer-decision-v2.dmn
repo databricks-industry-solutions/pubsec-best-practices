@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+ id="customer-decision-v2-definitions" name="Customer Decision V2"
+ namespace="https://example.com/dmn/customer-decision-v2">
+ <inputData id="input_credit_score" name="Credit Score"><variable id="var_credit_score" name="Credit Score" typeRef="number"/></inputData>
+ <inputData id="input_income" name="Income"><variable id="var_income" name="Income" typeRef="number"/></inputData>
+ <inputData id="input_state" name="State"><variable id="var_state" name="State" typeRef="string"/></inputData>
+ <inputData id="input_customer_segment" name="Customer Segment"><variable id="var_customer_segment" name="Customer Segment" typeRef="string"/></inputData>
+ <businessKnowledgeModel id="bkm_adjust_score" name="Adjust Score">
+  <variable id="var_adjust_score" name="Adjust Score" typeRef="function"/>
+  <encapsulatedLogic id="logic_adjust_score" typeRef="number">
+   <formalParameter id="param_score" name="score" typeRef="number"/>
+   <formalParameter id="param_segment" name="segment" typeRef="string"/>
+   <literalExpression id="expr_adjust_score" typeRef="number"><text>if segment = "PREMIUM" then score + 25 else score</text></literalExpression>
+  </encapsulatedLogic>
+ </businessKnowledgeModel>
+ <decision id="decision_income_band" name="Income Band">
+  <variable id="var_income_band" name="Income Band" typeRef="number"/>
+  <informationRequirement><requiredInput href="#input_income"/></informationRequirement>
+  <literalExpression id="expr_income_band" typeRef="number"><text>if Income &lt; 30000 then 1 else if Income &lt; 70000 then 2 else 3</text></literalExpression>
+ </decision>
+ <decision id="decision_adjusted_score" name="Adjusted Score">
+  <variable id="var_adjusted_score" name="Adjusted Score" typeRef="number"/>
+  <informationRequirement><requiredInput href="#input_credit_score"/></informationRequirement>
+  <informationRequirement><requiredInput href="#input_customer_segment"/></informationRequirement>
+  <knowledgeRequirement><requiredKnowledge href="#bkm_adjust_score"/></knowledgeRequirement>
+  <literalExpression id="expr_adjusted_score" typeRef="number"><text>Adjust Score(Credit Score, Customer Segment)</text></literalExpression>
+ </decision>
+ <decision id="decision_risk_category" name="Risk Category">
+  <variable id="var_risk_category" name="Risk Category" typeRef="string"/>
+  <informationRequirement><requiredDecision href="#decision_adjusted_score"/></informationRequirement>
+  <informationRequirement><requiredDecision href="#decision_income_band"/></informationRequirement>
+  <decisionTable id="risk_table" hitPolicy="FIRST">
+   <input id="risk_score"><inputExpression id="risk_score_expr" typeRef="number"><text>Adjusted Score</text></inputExpression></input>
+   <input id="risk_band"><inputExpression id="risk_band_expr" typeRef="number"><text>Income Band</text></inputExpression></input>
+   <output id="risk_output" name="Risk Category" typeRef="string"/>
+   <rule id="high"><inputEntry id="high_score"><text>&lt; 650</text></inputEntry><inputEntry id="high_band"><text>1</text></inputEntry><outputEntry id="high_out"><text>"HIGH"</text></outputEntry></rule>
+   <rule id="medium"><inputEntry id="medium_score"><text>&lt; 650</text></inputEntry><inputEntry id="medium_band"><text>-</text></inputEntry><outputEntry id="medium_out"><text>"MEDIUM"</text></outputEntry></rule>
+   <rule id="low"><inputEntry id="low_score"><text>&gt;= 650</text></inputEntry><inputEntry id="low_band"><text>-</text></inputEntry><outputEntry id="low_out"><text>"LOW"</text></outputEntry></rule>
+  </decisionTable>
+ </decision>
+ <decision id="decision_approval" name="Approval Decision">
+  <variable id="var_approval" name="Approval Decision" typeRef="string"/>
+  <informationRequirement><requiredDecision href="#decision_risk_category"/></informationRequirement>
+  <informationRequirement><requiredDecision href="#decision_adjusted_score"/></informationRequirement>
+  <informationRequirement><requiredInput href="#input_state"/></informationRequirement>
+  <literalExpression id="expr_approval" typeRef="string"><text>if Risk Category = "HIGH" then "MANUAL_REVIEW" else if Adjusted Score &gt;= 700 and State != "NY" then "APPROVED" else "REVIEW"</text></literalExpression>
+ </decision>
+</definitions>

@@ -1,0 +1,379 @@
+{
+  "datasets": [
+    {
+      "name": "ds_action_summary",
+      "displayName": "Action Summary",
+      "queryLines": [
+        "SELECT recommended_action, COUNT(*) as cnt, ROUND(AVG(audit_score), 1) as avg_score ",
+        "FROM <your-catalog>.<your-schema>.scored_results ",
+        "GROUP BY recommended_action"
+      ]
+    },
+    {
+      "name": "ds_totals",
+      "displayName": "Totals",
+      "queryLines": [
+        "SELECT COUNT(*) as total_returns, ",
+        "SUM(CASE WHEN recommended_action = 'FLAG' THEN 1 ELSE 0 END) as flag_count, ",
+        "SUM(CASE WHEN recommended_action = 'REVIEW' THEN 1 ELSE 0 END) as review_count, ",
+        "SUM(CASE WHEN recommended_action = 'PASS' THEN 1 ELSE 0 END) as pass_count, ",
+        "ROUND(100.0 * SUM(CASE WHEN recommended_action = 'FLAG' THEN 1 ELSE 0 END) / COUNT(*), 2) as flag_rate_pct, ",
+        "ROUND(AVG(audit_score), 1) as avg_audit_score ",
+        "FROM <your-catalog>.<your-schema>.scored_results"
+      ]
+    },
+    {
+      "name": "ds_filing_action",
+      "displayName": "Filing Status by Action",
+      "queryLines": [
+        "SELECT filing_status, recommended_action, COUNT(*) as cnt ",
+        "FROM <your-catalog>.<your-schema>.scored_results ",
+        "GROUP BY filing_status, recommended_action"
+      ]
+    },
+    {
+      "name": "ds_agi_band",
+      "displayName": "AGI Band by Action",
+      "queryLines": [
+        "SELECT CASE ",
+        "  WHEN agi < 50000 THEN '1_Under $50K' ",
+        "  WHEN agi < 100000 THEN '2_$50K-$100K' ",
+        "  WHEN agi < 250000 THEN '3_$100K-$250K' ",
+        "  WHEN agi < 500000 THEN '4_$250K-$500K' ",
+        "  ELSE '5_Over $500K' ",
+        "END as agi_band, ",
+        "recommended_action, ",
+        "COUNT(*) as cnt ",
+        "FROM <your-catalog>.<your-schema>.scored_results ",
+        "GROUP BY 1, 2"
+      ]
+    },
+    {
+      "name": "ds_score_dist",
+      "displayName": "Score Distribution",
+      "queryLines": [
+        "SELECT CASE ",
+        "  WHEN audit_score = 0 THEN '00: Score 0' ",
+        "  WHEN audit_score < 10 THEN '01-09' ",
+        "  WHEN audit_score < 20 THEN '10-19' ",
+        "  WHEN audit_score < 25 THEN '20-24' ",
+        "  WHEN audit_score < 30 THEN '25-29 (REVIEW)' ",
+        "  WHEN audit_score < 40 THEN '30-39' ",
+        "  WHEN audit_score < 50 THEN '40-49' ",
+        "  WHEN audit_score < 60 THEN '50-59 (FLAG)' ",
+        "  WHEN audit_score < 70 THEN '60-69' ",
+        "  ELSE '70+' ",
+        "END as score_bin, ",
+        "CASE ",
+        "  WHEN audit_score < 25 THEN 'PASS' ",
+        "  WHEN audit_score < 50 THEN 'REVIEW' ",
+        "  ELSE 'FLAG' ",
+        "END as action_zone, ",
+        "COUNT(*) as cnt ",
+        "FROM <your-catalog>.<your-schema>.scored_results ",
+        "GROUP BY 1, 2 ",
+        "ORDER BY 1"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "page_overview",
+      "displayName": "Overview",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "title-widget",
+            "multilineTextboxSpec": {
+              "lines": ["## Tax Authority Fraud Detection — Audit Scoring Dashboard"]
+            }
+          },
+          "position": {"x": 0, "y": 0, "width": 6, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "subtitle-widget",
+            "multilineTextboxSpec": {
+              "lines": ["GoRules ZEN Engine · 10M synthetic tax returns · <your-catalog>.<your-schema>.scored_results"]
+            }
+          },
+          "position": {"x": 0, "y": 1, "width": 6, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "kpi-total",
+            "queries": [{
+              "name": "main_query",
+              "query": {
+                "datasetName": "ds_totals",
+                "fields": [{"name": "total_returns", "expression": "`total_returns`"}],
+                "disaggregated": true
+              }
+            }],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {"fieldName": "total_returns", "displayName": "Total Returns Scored"}
+              },
+              "frame": {"showTitle": true, "title": "Total Returns Scored"}
+            }
+          },
+          "position": {"x": 0, "y": 2, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi-flag-rate",
+            "queries": [{
+              "name": "main_query",
+              "query": {
+                "datasetName": "ds_totals",
+                "fields": [{"name": "flag_rate_pct", "expression": "`flag_rate_pct`"}],
+                "disaggregated": true
+              }
+            }],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {"fieldName": "flag_rate_pct", "displayName": "FLAG Rate (%)"}
+              },
+              "frame": {"showTitle": true, "title": "FLAG Rate (%)"}
+            }
+          },
+          "position": {"x": 2, "y": 2, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi-avg-score",
+            "queries": [{
+              "name": "main_query",
+              "query": {
+                "datasetName": "ds_totals",
+                "fields": [{"name": "avg_audit_score", "expression": "`avg_audit_score`"}],
+                "disaggregated": true
+              }
+            }],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {"fieldName": "avg_audit_score", "displayName": "Avg Audit Score"}
+              },
+              "frame": {"showTitle": true, "title": "Avg Audit Score"}
+            }
+          },
+          "position": {"x": 4, "y": 2, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "section-distribution",
+            "multilineTextboxSpec": {
+              "lines": ["### Audit Outcome Distribution"]
+            }
+          },
+          "position": {"x": 0, "y": 5, "width": 6, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "chart-action-pie",
+            "queries": [{
+              "name": "main_query",
+              "query": {
+                "datasetName": "ds_action_summary",
+                "fields": [
+                  {"name": "recommended_action", "expression": "`recommended_action`"},
+                  {"name": "count(*)", "expression": "SUM(`cnt`)"}
+                ],
+                "disaggregated": false
+              }
+            }],
+            "spec": {
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "count(*)",
+                  "scale": {"type": "quantitative"},
+                  "displayName": "Returns"
+                },
+                "color": {
+                  "fieldName": "recommended_action",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {"value": "PASS", "color": "#00A972"},
+                      {"value": "REVIEW", "color": "#FFAB00"},
+                      {"value": "FLAG", "color": "#FF3621"}
+                    ]
+                  },
+                  "displayName": "Outcome"
+                }
+              },
+              "frame": {"showTitle": true, "title": "PASS / REVIEW / FLAG Distribution"}
+            }
+          },
+          "position": {"x": 0, "y": 6, "width": 3, "height": 6}
+        },
+        {
+          "widget": {
+            "name": "chart-score-dist",
+            "queries": [{
+              "name": "main_query",
+              "query": {
+                "datasetName": "ds_score_dist",
+                "fields": [
+                  {"name": "score_bin", "expression": "`score_bin`"},
+                  {"name": "action_zone", "expression": "`action_zone`"},
+                  {"name": "count(*)", "expression": "SUM(`cnt`)"}
+                ],
+                "disaggregated": false
+              }
+            }],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "score_bin",
+                  "scale": {"type": "categorical", "sort": {"by": "natural-order"}},
+                  "displayName": "Score Range"
+                },
+                "y": {
+                  "fieldName": "count(*)",
+                  "scale": {"type": "quantitative"},
+                  "displayName": "Returns"
+                },
+                "color": {
+                  "fieldName": "action_zone",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {"value": "PASS", "color": "#00A972"},
+                      {"value": "REVIEW", "color": "#FFAB00"},
+                      {"value": "FLAG", "color": "#FF3621"}
+                    ]
+                  },
+                  "displayName": "Zone"
+                }
+              },
+              "frame": {"showTitle": true, "title": "Audit Score Distribution (Colored by Zone)"}
+            }
+          },
+          "position": {"x": 3, "y": 6, "width": 3, "height": 6}
+        },
+        {
+          "widget": {
+            "name": "section-risk",
+            "multilineTextboxSpec": {
+              "lines": ["### Risk Profile Breakdown"]
+            }
+          },
+          "position": {"x": 0, "y": 12, "width": 6, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "chart-filing-status",
+            "queries": [{
+              "name": "main_query",
+              "query": {
+                "datasetName": "ds_filing_action",
+                "fields": [
+                  {"name": "filing_status", "expression": "`filing_status`"},
+                  {"name": "recommended_action", "expression": "`recommended_action`"},
+                  {"name": "count(*)", "expression": "SUM(`cnt`)"}
+                ],
+                "disaggregated": false
+              }
+            }],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "mark": {"layout": "group"},
+              "encodings": {
+                "x": {
+                  "fieldName": "filing_status",
+                  "scale": {"type": "categorical"},
+                  "displayName": "Filing Status"
+                },
+                "y": {
+                  "fieldName": "count(*)",
+                  "scale": {"type": "quantitative"},
+                  "displayName": "Returns"
+                },
+                "color": {
+                  "fieldName": "recommended_action",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {"value": "PASS", "color": "#00A972"},
+                      {"value": "REVIEW", "color": "#FFAB00"},
+                      {"value": "FLAG", "color": "#FF3621"}
+                    ]
+                  },
+                  "displayName": "Outcome"
+                }
+              },
+              "frame": {"showTitle": true, "title": "Outcomes by Filing Status"}
+            }
+          },
+          "position": {"x": 0, "y": 13, "width": 3, "height": 6}
+        },
+        {
+          "widget": {
+            "name": "chart-agi-band",
+            "queries": [{
+              "name": "main_query",
+              "query": {
+                "datasetName": "ds_agi_band",
+                "fields": [
+                  {"name": "agi_band", "expression": "`agi_band`"},
+                  {"name": "recommended_action", "expression": "`recommended_action`"},
+                  {"name": "count(*)", "expression": "SUM(`cnt`)"}
+                ],
+                "disaggregated": false
+              }
+            }],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "agi_band",
+                  "scale": {"type": "categorical", "sort": {"by": "natural-order"}},
+                  "displayName": "AGI Band"
+                },
+                "y": {
+                  "fieldName": "count(*)",
+                  "scale": {"type": "quantitative"},
+                  "displayName": "Returns"
+                },
+                "color": {
+                  "fieldName": "recommended_action",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {"value": "PASS", "color": "#00A972"},
+                      {"value": "REVIEW", "color": "#FFAB00"},
+                      {"value": "FLAG", "color": "#FF3621"}
+                    ]
+                  },
+                  "displayName": "Outcome"
+                }
+              },
+              "frame": {"showTitle": true, "title": "Outcomes by Income Band (Stacked)"}
+            }
+          },
+          "position": {"x": 3, "y": 13, "width": 3, "height": 6}
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}
