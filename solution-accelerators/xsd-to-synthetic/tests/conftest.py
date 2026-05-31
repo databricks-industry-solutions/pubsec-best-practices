@@ -226,6 +226,8 @@ def notebook_classes():
         'SyntheticDataGenerator': namespace['SyntheticDataGenerator'],
         # XSD loading
         'XSDLoader': namespace.get('XSDLoader'),
+        # Top-level convenience functions
+        'xsd_to_synthetic': namespace.get('xsd_to_synthetic'),
         # Strategy pattern classes (if available)
         'FieldConfigurationStrategy': namespace.get('FieldConfigurationStrategy'),
         'StrategyContext': namespace.get('StrategyContext'),
