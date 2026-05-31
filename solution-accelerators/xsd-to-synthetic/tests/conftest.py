@@ -228,6 +228,8 @@ def notebook_classes():
         'XSDLoader': namespace.get('XSDLoader'),
         # Top-level convenience functions
         'xsd_to_synthetic': namespace.get('xsd_to_synthetic'),
+        # Module-level helpers
+        'generate_pattern_samples': namespace.get('generate_pattern_samples'),
         # Strategy pattern classes (if available)
         'FieldConfigurationStrategy': namespace.get('FieldConfigurationStrategy'),
         'StrategyContext': namespace.get('StrategyContext'),
