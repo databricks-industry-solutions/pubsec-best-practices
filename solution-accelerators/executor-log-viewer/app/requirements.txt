@@ -1,0 +1,26 @@
+# Databricks Apps runtime requirements — AIR-GAP / NO-PYPI SAFE.
+#
+# This file is intentionally EMPTY of installable packages. Every runtime
+# dependency this app needs is ALREADY pre-installed in the Databricks Apps
+# base image, so the deploy installs nothing from PyPI and works in an
+# air-gapped / no-egress environment (e.g. GovCloud):
+#
+#   databricks-sdk   (base image: 0.33.0)   — SP + user OBO clients
+#   fastapi          (base image: 0.115.0)  — the web framework
+#   uvicorn[standard](base image: 0.30.6)   — the ASGI server (see app.yaml command)
+#   starlette / pydantic / anyio / click / h11 ... — transitive, come with fastapi/uvicorn
+#
+# Verified: the full backend test suite (145 tests) passes against these exact
+# base-image versions (see requirements-dev.txt for the local/CI pins). We do
+# NOT pin newer versions here because a pin the base image doesn't satisfy would
+# force pip to reach PyPI — the one thing an air-gapped deploy cannot do.
+#
+# If a future dependency is NOT in the base image, vendor its wheel(s) into a
+# UC Volume, add the Volume as an app resource, and reference the FULL wheel
+# path here, e.g.:
+#   /Volumes/<catalog>/<schema>/<volume>/<pkg>-<ver>-py3-none-any.whl
+# (requirements.txt does not support env-var refs; the path must be hard-coded,
+# and ALL transitive wheels must be present in the Volume.)
+#
+# The React frontend is prebuilt (frontend/dist/ is committed) and served as
+# static files — no npm install / Node registry access happens at deploy.

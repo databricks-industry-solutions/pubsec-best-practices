@@ -1,0 +1,18 @@
+# LOCAL / CI dependencies — NOT used by the Databricks Apps deploy.
+#
+# The deployed app relies on the base-image pre-installed packages (see
+# requirements.txt). This file pins versions for a reproducible local test env.
+# Prefer the BASE-IMAGE versions here so local tests match production; a second
+# set of pins (the latest) is kept commented for reference.
+#
+#   python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+#   .venv/bin/python -m pytest -q   (run from app/backend/)
+
+# Base-image versions (what the deployed app actually runs on):
+databricks-sdk==0.33.0
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# Test-only:
+pytest==8.3.4
+httpx==0.28.1

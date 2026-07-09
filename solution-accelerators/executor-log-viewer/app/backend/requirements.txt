@@ -1,0 +1,5 @@
+# Local/CI only — NOT the deploy requirements. The Databricks Apps deploy uses
+# the source-root app/requirements.txt (air-gap-safe: empty, relies on the base
+# image). For a local test env use the pinned dev file one level up:
+#   python3 -m venv .venv && .venv/bin/pip install -r ../requirements-dev.txt
+-r ../requirements-dev.txt
