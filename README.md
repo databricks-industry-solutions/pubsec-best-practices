@@ -14,6 +14,7 @@ A mono-repo for public sector solution accelerators and demos built on Databrick
 |---------|-------------|
 | [xsd-to-synthetic](solution-accelerators/xsd-to-synthetic/) | Generate synthetic data from XSD schemas using PySpark |
 | [r-airgap-install](solution-accelerators/r-airgap-install/) | Install R geospatial packages (`zipcodeR`, `sf`, `terra`, etc.) on an air-gapped Databricks cluster via UC Volume |
+| [executor-log-viewer](solution-accelerators/executor-log-viewer/) | Databricks App to read Spark executor/driver logs from terminated job clusters (delivered by Cluster Log Delivery to a UC Volume), on-behalf-of the viewing user; air-gap ready |
 
 ### Demos
 
@@ -69,3 +70,8 @@ See [docs/branching-strategy.md](docs/branching-strategy.md) for details.
 | Faker | MIT | Daniele Faraglia |
 | ruff | MIT | Astral Software Inc. |
 | pytest | MIT | Holger Krekel and others |
+| databricks-sdk | Apache 2.0 | Databricks, Inc. |
+| FastAPI | MIT | Sebastián Ramírez |
+| Uvicorn | BSD 3-Clause | Encode OSS Ltd. |
+| React | MIT | Meta Platforms, Inc. |
+| Vite | MIT | Evan You and Vite contributors |
