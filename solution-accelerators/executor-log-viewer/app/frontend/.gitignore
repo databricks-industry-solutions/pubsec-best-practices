@@ -1,0 +1,13 @@
+# Node / Vite local artifacts — never deploy these.
+node_modules/
+.vite/
+*.tsbuildinfo
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# NOTE: dist/ is intentionally NOT ignored here. The Databricks App's FastAPI
+# backend serves the built SPA from frontend/dist/, so the build output must be
+# committed and deployed. (The repo-root .gitignore ignores dist/ broadly and
+# then un-ignores app/frontend/dist/.)

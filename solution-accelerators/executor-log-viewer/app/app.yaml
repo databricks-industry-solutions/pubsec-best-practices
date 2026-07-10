@@ -1,0 +1,35 @@
+# Databricks Apps configuration for the Executor Log Viewer.
+#
+# Runs the FastAPI backend with uvicorn on the port Databricks Apps expects.
+# The platform sets DATABRICKS_APP_PORT / listens on 8000; we bind 0.0.0.0:8000.
+#
+# NOTE ON AUTH (spec §4): on-behalf-of-user scope (files.files) is configured
+# by a workspace admin in the app's "User authorization" UI (+Add scope) — it
+# is NOT declared here. Jobs/Clusters run via the app service principal
+# (two-identity model, §2). FILEREF_SIGNING_SECRET is a Databricks secret,
+# referenced via valueFrom below — never a committed plaintext value.
+command:
+  - uvicorn
+  - app:app
+  - --host
+  - "0.0.0.0"
+  - --port
+  - "8000"
+  - --app-dir
+  - backend
+
+env:
+  # HMAC secret for signing opaque file refs (filerefs.py). REQUIRED.
+  # valueFrom references the app SECRET RESOURCE named "fileref-signing-secret"
+  # (declared in the app's resources; bound to secret scope executor-log-viewer
+  # / key fileref_signing_secret). Never a committed plaintext value.
+  - name: FILEREF_SIGNING_SECRET
+    valueFrom: "fileref-signing-secret"
+  # Allowlist of CLD roots (spec §2/§3.3). A cluster's CLD destination must
+  # resolve to (equal or nested under) one of these roots to appear in the
+  # "recent clusters with logs" list and to be resolvable. Comma-separated.
+  # Per-team roots would each get their own UC grants. Replace the placeholders
+  # below with YOUR cluster-log-delivery volume(s) — the same paths your job
+  # clusters write executor logs to. See DEPLOY.md.
+  - name: CLD_ROOT_ALLOWLIST
+    value: "/Volumes/<catalog>/<schema>/<cld_volume>"

@@ -1,0 +1,30 @@
+[project]
+name = "executor-log-viewer-backend"
+version = "0.1.0"
+description = "FastAPI backend for the Executor Log Viewer Databricks App"
+requires-python = ">=3.10"
+# NOTE: The Databricks Apps DEPLOY installs from the source-root
+# `app/requirements.txt` (intentionally empty — every runtime dep is
+# pre-installed in the Apps base image, so the deploy needs no PyPI; see that
+# file). These pins are for LOCAL dev/CI only and MATCH the base-image versions
+# so local tests mirror production. Do not bump them past the base image without
+# vendoring wheels to a UC Volume (that pin would force a PyPI download at
+# deploy, which an air-gapped env cannot do).
+dependencies = [
+    "databricks-sdk==0.33.0",
+    "fastapi==0.115.0",
+    "uvicorn[standard]==0.30.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "httpx==0.28.1",
+]
+
+[tool.pytest.ini_options]
+# Modules are flat (auth.py, logs.py, ...) and import each other by bare name,
+# matching how Databricks Apps runs the app from the backend dir. Put that dir
+# on sys.path for tests.
+pythonpath = ["."]
+testpaths = ["tests"]
