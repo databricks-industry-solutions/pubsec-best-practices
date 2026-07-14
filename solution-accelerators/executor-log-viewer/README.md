@@ -1,21 +1,33 @@
-# Executor Log Viewer — Databricks App
+# Executor Log Viewer
 
 Read Spark **executor** (and driver) `stdout`/`stderr` logs from **terminated
 job clusters** — the case where the Spark History Server "Logs" link 404s
 because the cluster no longer exists.
 
-The app reads logs that Databricks [Cluster Log Delivery
+It reads logs that Databricks [Cluster Log Delivery
 (CLD)](https://docs.databricks.com/compute/configure.html#cluster-log-delivery)
-has written to a Unity Catalog Volume, and serves them through a small
-FastAPI + React app that runs **on-behalf-of the viewing user** so Unity
-Catalog enforces exactly what each person is allowed to read.
+has written to a Unity Catalog Volume. Unity Catalog enforces exactly what each
+person is allowed to read.
 
-Built for restricted / **air-gapped** environments (e.g. GovCloud): the deploy
-pulls **nothing** from PyPI or npm — all runtime dependencies ship in the
-Databricks Apps base image and the frontend is prebuilt. See
-[`docs/air-gapped-deploy.md`](docs/air-gapped-deploy.md).
+## Two ways to use it
 
-> **Deploying it?** Follow the step-by-step runbook in **[`DEPLOY.md`](DEPLOY.md)**.
+| | [Notebook](notebooks/) | [App](app/) |
+|---|---|---|
+| Setup | Import + attach to a cluster | Deploy app + SP + secret + OBO scope |
+| Identity | Runs **as you** — UC enforces access directly | Two-identity: SP metadata + user OBO content |
+| Best for | Ad-hoc / one-off debugging | Shared, always-on team tool with a UI |
+
+Both share the **same** CLD-path rules, recognized-log-file boundary, and reason
+codes. Pick the notebook to get going in a minute; pick the app for a hosted,
+multi-user UI.
+
+The **app** is built for restricted / **air-gapped** environments (e.g.
+GovCloud): the deploy pulls **nothing** from PyPI or npm — all runtime
+dependencies ship in the Databricks Apps base image and the frontend is
+prebuilt. See [`docs/air-gapped-deploy.md`](docs/air-gapped-deploy.md).
+
+> **Deploying the app?** Follow the step-by-step runbook in **[`DEPLOY.md`](DEPLOY.md)**.
+> **Just want the notebook?** See **[`notebooks/README.md`](notebooks/README.md)**.
 
 ## Why this exists
 
@@ -63,9 +75,12 @@ offers three, in order of friction:
 ```
 executor-log-viewer/
 ├── README.md                 # this file
-├── DEPLOY.md                 # step-by-step deployment runbook (start here to deploy)
+├── DEPLOY.md                 # step-by-step app deployment runbook
 ├── docs/
 │   └── air-gapped-deploy.md  # no-PyPI / no-npm deployment details + wheel-vendoring
+├── notebooks/                # the notebook edition (import + attach)
+│   ├── README.md             # notebook vs. app; how to run
+│   └── executor_log_viewer.py  # Databricks source-format notebook, widget-driven
 └── app/                      # the Databricks App (deploy this folder)
     ├── app.yaml              # Apps config (uvicorn command, env, secret + allowlist)
     ├── requirements.txt      # INTENTIONALLY EMPTY — deps are in the base image
