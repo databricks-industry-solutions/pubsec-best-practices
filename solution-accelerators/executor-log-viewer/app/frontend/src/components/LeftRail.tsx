@@ -224,7 +224,10 @@ function RecentClustersSection({
 
 // A small state badge for a cluster's lifecycle state (TERMINATED / RUNNING).
 function StateBadge({ state }: { state: string | null }) {
-  const up = (state || 'UNKNOWN').toUpperCase();
+  // No badge when state is unknown (e.g. Volume-sourced clusters carry no
+  // cluster state) — rendering "UNKNOWN" is noise, not information.
+  if (!state) return null;
+  const up = state.toUpperCase();
   const running = up === 'RUNNING' || up === 'PENDING' || up === 'RESIZING' || up === 'RESTARTING';
   const bg = running ? ACCENT : '#565c65';
   return (
@@ -274,7 +277,13 @@ function ClusterEntryRow({
 }) {
   const [hover, setHover] = useState(false);
   const age = relativeAge(cluster.terminated_at ?? cluster.started_at);
-  const title = cluster.cluster_name || cluster.cluster_id;
+  // Prefer the friendly job name; then any raw cluster name; then, if we parsed
+  // a job id but the job was deleted (no friendly name), show "Job <id>"; else
+  // fall back to the cluster id.
+  const title =
+    cluster.job_name ||
+    cluster.cluster_name ||
+    (cluster.job_id ? `Job ${cluster.job_id}` : cluster.cluster_id);
   const source = cluster.cluster_source;
 
   return (
@@ -337,6 +346,9 @@ function ClusterEntryRow({
             }}
           >
             {cluster.cluster_id}
+            {cluster.run_id && (
+              <span style={{ color: 'var(--app-faint)' }}> · run {cluster.run_id}</span>
+            )}
           </span>
           {source && (
             <span

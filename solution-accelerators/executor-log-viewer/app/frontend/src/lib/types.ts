@@ -111,6 +111,9 @@ export interface ClusterEntry {
   cluster_source: string | null; // e.g. JOB / UI / API
   started_at: number | null; // unix epoch millis
   terminated_at: number | null; // unix epoch millis
+  job_id?: string | null; // parsed from job-<id>-run-<id> cluster name
+  run_id?: string | null; // parsed run id
+  job_name?: string | null; // friendly job name (jobs.get); null if deleted
 }
 
 export interface ClustersResult {

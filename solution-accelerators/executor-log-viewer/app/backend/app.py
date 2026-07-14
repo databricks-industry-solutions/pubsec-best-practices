@@ -27,7 +27,7 @@ from fastapi.staticfiles import StaticFiles
 
 import auth
 import browse as browse_mod
-import clusters_source
+import cluster_names
 import filerefs
 import logs
 import resolver
@@ -538,29 +538,79 @@ def get_clusters(
 ):
     """List recent clusters that have executor logs — the PRIMARY browse source.
 
-    [APP SP] ``clusters.list`` enumerates clusters (incl. TERMINATED) WITHOUT any
-    per-cluster grant; each carries ``cluster_log_conf`` -> its CLD Volume path.
-    We keep only clusters whose CLD dest is an allowlisted Volume (reusing the
-    resolver's CLD extractor + allowlist match), so this is a rich,
-    low-maintenance "clusters you can actually open logs for" list.
+    SOURCE (changed): this is derived from the CLD **Volume itself**, listed with
+    the viewing user's [USER OBO] ``files.files`` token — the same self-maintaining
+    source as ``/api/browse``. We enumerate every allowlisted root, list its
+    immediate ``<cluster-id>/`` subdirectories, and return them as clusters.
 
-    SECURITY (MEDIUM #8 — intentional decision): this returns cluster METADATA
-    only, never file content and (as of the security fix) never the raw
-    ``cld_dest`` Volume path — that is dropped by ``entries_as_dicts`` and kept
-    internal for resolution. Like ``/api/runs``, this is a workspace-scoped,
-    SP-visible metadata list, NOT filtered per viewing user; every app user sees
-    the same clusters. The actual log CONTENT stays gated per-user by the OBO
-    Files read on click (clicking a cluster -> ``/api/runs/{cluster_id}/logs``
-    -> resolve -> file_ref -> user-token read). ``Cache-Control: no-store``.
+    WHY NOT ``clusters.list``: the app SP's ``clusters.list`` only returns
+    clusters the SP can VIEW, so freshly-created job clusters (owned by users'
+    jobs, not the SP) never appear without per-job grants — not self-maintaining.
+    Listing the Volume instead means "any cluster that DELIVERED logs shows up,"
+    with zero SP/cluster grants, and Unity Catalog enforces per-user access on
+    the listing (the user only sees dirs they can read).
+
+    SECURITY: directory NAMES only — never file content, never a ``file_ref``.
+    Content stays gated per-user by the OBO Files read on click (clicking a
+    cluster -> ``/api/runs/{cluster_id}/logs`` -> resolve -> file_ref -> user
+    read). ``Cache-Control: no-store``.
     """
-    sp = sp_client.build_sp_client()
-    lister = clusters_source.SdkClustersLister(sp)
-    entries = clusters_source.list_clusters_with_logs(
-        lister,
-        allowlist=resolver.load_allowlist(),
-        limit=limit,
-    )
-    resp = JSONResponse(content={"clusters": clusters_source.entries_as_dicts(entries)})
+    # [USER OBO] — UC enforces per-user access on the Volume listing.
+    try:
+        user = auth.build_user_client(request.headers)
+    except auth.AuthError as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"reason_code": "FILES_SCOPE_MISSING", "detail": str(exc)},
+        )
+
+    lister = resolver.SdkFileLister(user)
+    allowlist = resolver.load_allowlist()
+
+    # Aggregate cluster dirs across every allowlisted CLD root. A root the user
+    # can't read (or that doesn't exist yet) is skipped, not fatal.
+    seen: set[str] = set()
+    clusters: list[dict] = []
+    for root in allowlist:
+        try:
+            result = browse_mod.browse_root(lister, root, allowlist=allowlist)
+        except browse_mod.BrowseError:
+            continue  # missing / forbidden root -> just skip it
+        for cand in result.get("clusters", []):
+            cid = cand.get("cluster_id")
+            if not cid or cid in seen:
+                continue
+            seen.add(cid)
+            clusters.append(
+                {
+                    "cluster_id": cid,
+                    "cluster_name": None,  # not known from the Volume alone
+                    "state": None,
+                    "cluster_source": None,
+                    "started_at": None,
+                    "terminated_at": cand.get("modified"),
+                    "has_executor": cand.get("has_executor"),
+                    "has_driver": cand.get("has_driver"),
+                }
+            )
+
+    # Most-recent first (by dir mtime); unknown mtime sorts last.
+    clusters.sort(key=lambda c: (c["terminated_at"] is None, -(c["terminated_at"] or 0), c["cluster_id"]))
+    clusters = clusters[:limit]
+
+    # Best-effort enrich with job/run ids + friendly job name via the [APP SP]
+    # (metadata only; never fatal — deleted/aged-out jobs leave fields null).
+    try:
+        sp = sp_client.build_sp_client()
+        name_meta = cluster_names.SdkClusterNameMetaClient(sp)
+        cluster_names.enrich_clusters(clusters, name_meta)
+    except Exception:  # noqa: BLE001 - enrichment is optional; list still works
+        for c in clusters:
+            c.setdefault("job_id", None)
+            c.setdefault("run_id", None)
+            c.setdefault("job_name", None)
+
+    resp = JSONResponse(content={"clusters": clusters})
     resp.headers["Cache-Control"] = "no-store"
     return resp
 

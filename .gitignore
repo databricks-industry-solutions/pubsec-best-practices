@@ -17,6 +17,10 @@ __pycache__/
 *$py.class
 *.egg-info/
 dist/
+# Exception: the executor-log-viewer Databricks App serves its prebuilt React
+# SPA from this dist/, so the build output must be committed and deployed.
+!solution-accelerators/executor-log-viewer/app/frontend/dist/
+!solution-accelerators/executor-log-viewer/app/frontend/dist/**
 build/
 
 # Jupyter Notebook checkpoints

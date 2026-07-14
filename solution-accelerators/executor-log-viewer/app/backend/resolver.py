@@ -490,6 +490,17 @@ def resolve_cluster(
 
     cld = _cld_destination(details)
     if not cld:
+        # A TERMINATED cluster is still gettable via clusters.get, but the API
+        # frequently drops ``cluster_log_conf`` once it terminates. Before
+        # declaring NO_CLD, probe the allowlisted roots for an existing
+        # ``<root>/<cluster-id>/`` — the same fallback the metadata-aged-out
+        # (exception) path uses. If the logs are sitting in an allowlisted
+        # Volume, use it (this is exactly the browse->click case).
+        root = _find_root_by_probe(cluster_id, allowlist, lister)
+        if root is not None:
+            return build_tree(
+                lister, root=root, cluster_id=cluster_id, run_id=run_id, user=user
+            )
         return _err("NO_CLD", detail="cluster has no cluster-log-delivery configured")
 
     root = _match_allowlisted_root(cld, allowlist)

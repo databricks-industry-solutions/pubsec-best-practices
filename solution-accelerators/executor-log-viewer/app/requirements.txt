@@ -10,7 +10,7 @@
 #   uvicorn[standard](base image: 0.30.6)   — the ASGI server (see app.yaml command)
 #   starlette / pydantic / anyio / click / h11 ... — transitive, come with fastapi/uvicorn
 #
-# Verified: the full backend test suite (145 tests) passes against these exact
+# Verified: the full backend test suite (151 tests) passes against these exact
 # base-image versions (see requirements-dev.txt for the local/CI pins). We do
 # NOT pin newer versions here because a pin the base image doesn't satisfy would
 # force pip to reach PyPI — the one thing an air-gapped deploy cannot do.

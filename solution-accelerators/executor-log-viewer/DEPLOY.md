@@ -118,29 +118,37 @@ select **`files.files`** → Save.
 
 ---
 
-## 6. Grant the service principal what it needs
+## 6. Grant the users what they need (the SP needs almost nothing)
 
-Two small grants, both cheap and self-maintaining:
+Discovery and reading are both driven by the **viewing user's** OBO token, so
+the important grants go to your **users**, not the app service principal:
 
-1. **List clusters** — the SP calls `clusters.list` to surface recent clusters
-   and their CLD paths. `clusters.list` returns clusters **without any
-   per-cluster grant**, so usually **no grant is required** here. (If you want
-   the SP to also resolve pasted **run/job IDs**, grant it **CAN_VIEW** on those
-   specific jobs.)
-
-2. **No SP grant on the Volume is required for user-facing reads** — logs are
-   read with the **user's** token, so each user needs their own **READ VOLUME**
-   (and USE CATALOG / USE SCHEMA) on the CLD Volume. Grant your log-reading
-   users:
+1. **User grants on the CLD Volume (required).** The recent-clusters list, the
+   Browse view, and every log read all list/read the Volume with the *user's*
+   token, so each user needs their own **READ VOLUME** (plus `USE CATALOG` /
+   `USE SCHEMA`) on the CLD Volume:
    ```sql
    GRANT USE CATALOG ON CATALOG <catalog> TO `<group-or-user>`;
    GRANT USE SCHEMA  ON SCHEMA  <catalog>.<schema> TO `<group-or-user>`;
    GRANT READ VOLUME ON VOLUME  <catalog>.<schema>.<cld_volume> TO `<group-or-user>`;
    ```
+   With this in place the **recent-clusters list populates on its own** — no SP
+   or per-cluster grant is needed, and it stays current as new job clusters
+   deliver logs.
 
-> That's the whole point of the two-identity model: you are **not** giving the
-> SP broad access to everyone's logs. The SP only reads *metadata*; content
-> access is each user's own UC grants.
+2. **Optional SP grants (nice-to-have only).** The SP is used for two
+   best-effort things that never block the list: (a) enriching each cluster row
+   with a **friendly job name** (`clusters.get` → `jobs.get`), and (b) resolving
+   a pasted **run/job ID** to its cluster. Both work on *specific IDs* without
+   any `clusters.list` visibility. If a job's name doesn't show (e.g. the job
+   was deleted, or the SP can't see it), the row still appears as `Job <id>` and
+   logs still open — nothing breaks. Granting the SP **CAN_VIEW** on the jobs you
+   care about simply makes friendly names appear.
+
+> That's the two-identity model: the SP is *never* given broad access to
+> everyone's logs. Log **content** is gated entirely by each user's own UC
+> grants; the SP only reads job/cluster **metadata** for display, and only
+> best-effort.
 
 ---
 
@@ -182,9 +190,11 @@ lines (nothing pulled from PyPI).
 1. Open the app URL. As a **workspace admin/owner** you may not see the OBO
    consent screen; a **regular user's** first visit should prompt to authorize
    `files.files`.
-2. The left rail should list **Recent clusters with logs** (from the SP's
-   `clusters.list`). If empty, either no clusters have CLD under an allowlisted
-   root, or the allowlist path is wrong.
+2. The left rail should list **Recent clusters with logs** (from user-OBO
+   listing of the allowlisted CLD Volume root(s), enriched with job names). If
+   empty, either no `<cluster-id>` directories exist under an allowlisted root,
+   the signed-in user lacks **READ VOLUME** on that root, or the allowlist path
+   is wrong.
 3. Click a cluster (or paste a cluster/run ID). You should see `stdout`/`stderr`
    for the executors. A user **without** UC READ on the Volume should get a
    clean **403**, not a path leak.
@@ -201,7 +211,8 @@ lines (nothing pulled from PyPI).
 | "more than one authorization method configured" | Not applicable at deploy; internal OBO client already handles this (`auth_type="pat"`) | — |
 | Secret resource "error resolving resource" | `valueFrom` must match the **resource name** (`fileref-signing-secret`), not `scope/key` | Fix the resource name in step 4 |
 | `files.files` scope disappears after an update | Adding resources via `apps update` can drop OBO scopes | Re-add `files.files` in the Authorization UI (send only `files.files`) |
-| No recent clusters listed | No CLD under allowlisted root, or wrong allowlist | Verify cluster logging → Volume, and `CLD_ROOT_ALLOWLIST` |
+| No recent clusters listed | No `<cluster-id>` dirs under an allowlisted root, user lacks READ VOLUME on it, or wrong allowlist | Verify cluster logging → Volume, grant the user `READ VOLUME`, and check `CLD_ROOT_ALLOWLIST` |
+| Clusters show as `Job <id>` (no friendly name) | SP can't resolve the job (deleted, or no CAN_VIEW) — expected, not an error | Optionally grant the SP CAN_VIEW on the job; logs still open regardless |
 | Logs 403 for a user | User lacks UC READ on the Volume | Grant `READ VOLUME` (+ USE CATALOG/SCHEMA) to that user/group |
 
 ---
