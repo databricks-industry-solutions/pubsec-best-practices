@@ -1,0 +1,21 @@
+[project]
+name = "open-source-llm-serving"
+version = "0.1.0"
+description = "Package an open-source model with MLflow, register it in Unity Catalog, and deploy it to a Model Serving endpoint"
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    "transformers>=4.49.0",
+    "accelerate>=0.34.0",
+    "mlflow>=3.1",
+    "huggingface_hub>=0.26.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
