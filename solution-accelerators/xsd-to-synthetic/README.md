@@ -40,13 +40,57 @@ df.write.parquet("synthetic_data.parquet")
 
 ### Requirements
 
+The library ships as a **Databricks notebook**, not as an installable wheel — load it
+with `%run` (see [Usage Examples](#usage-examples)). Install only its third-party dependencies:
+
 ```bash
-pip install pyspark xmlschema dbldatagen faker
+pip install pyspark xmlschema dbldatagen faker rstr
 ```
 
 ### XSD Schema Setup
 
 This framework requires XSD schema files to define the data structure. You must provide your own XSD files.
+
+#### Multi-file schemas (`xsd:include` / `xsd:import`)
+
+Real schema packages split definitions across files — IRS MeF forms, for example, all
+pull in `Common/efileTypes.xsd` via a relative path such as
+`../../../Common/efileTypes.xsd`.
+
+**If the package is on disk with its original layout intact, pass nothing** — includes
+resolve natively from the main file's own directory:
+
+```python
+loader = XSDLoader()
+schema = loader.load("path/to/IRS990T.xsd")          # includes resolve automatically
+```
+
+**If the layout differs** (files copied, flattened, or staged elsewhere), point the
+loader at the include targets. Overrides are keyed by **filename**, so an include
+redirects regardless of the relative path used to reach it:
+
+```python
+# explicit files
+schema = loader.load("IRS990T.xsd", include_paths=["some/where/efileTypes.xsd"])
+
+# or index a whole package recursively by filename
+schema = loader.load("IRS990T.xsd", include_dirs=["/Volumes/.../schema/2024v5.0"])
+```
+
+#### Check that the includes actually resolved
+
+`xmlschema` only emits a **warning** when an include fails, so a schema can look healthy
+while missing most of its types — and the facets from those missing types are then not
+enforced. Always check the report before trusting a schema for validation:
+
+```python
+schema = loader.load("IRS990T.xsd")
+report = loader.get_include_report()
+# {'declared': 1, 'resolved': 1, 'unresolved': [], 'global_types': 145}
+
+if report["unresolved"]:
+    raise RuntimeError(f"unresolved includes: {report['unresolved']}")
+```
 
 **For IRS Forms:**
 1. Download IRS e-file schemas from [IRS MeF Schema Downloads](https://www.irs.gov/e-file-providers/modernized-e-file-schemas-and-business-rules)
