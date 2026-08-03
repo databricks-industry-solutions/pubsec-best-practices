@@ -1,3 +1,11 @@
+# This accelerator ships its library as a DATABRICKS NOTEBOOK, not as an installable
+# wheel. Load it with:  %run "./XSD to Synthetic - Library"   (see README).
+#
+# This file therefore exists to (a) declare the third-party packages the notebook
+# needs and (b) configure pytest. There is deliberately no [build-system] and no
+# packages table: `pip install .` is not a supported entry point. Install the
+# dependencies directly:
+#     pip install xmlschema pyspark dbldatagen faker rstr
 [project]
 name = "xsd-to-synthetic"
 version = "3.0.0"
@@ -15,10 +23,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
-[project.urls]
-Homepage = "https://github.com/databricks/xsd-to-synthetic"
-Repository = "https://github.com/databricks/xsd-to-synthetic"
-Issues = "https://github.com/databricks/xsd-to-synthetic/issues"
+# NOTE: `dependencies` must sit directly under [project]. It previously appeared
+# *after* [project.urls], which TOML parses as a key of that table — so these runtime
+# requirements were silently invisible to every tool that read this file.
 dependencies = [
     "xmlschema>=2.0.0",
     "pyspark>=3.5.0",
@@ -31,6 +38,11 @@ dependencies = [
 dev = [
     "pytest>=7.4.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/databricks-industry-solutions/pubsec-best-practices"
+Repository = "https://github.com/databricks-industry-solutions/pubsec-best-practices"
+Issues = "https://github.com/databricks-industry-solutions/pubsec-best-practices/issues"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
