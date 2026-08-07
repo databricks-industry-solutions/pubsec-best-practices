@@ -1,0 +1,55 @@
+bundle:
+  name: drools-databricks-dmn-enterprise-solution
+
+variables:
+  jar_volume_path:
+    default: /Volumes/dbx_practice_ws/default/dbx-practice-volume/drools-databricks-dmn-enterprise-solution-2.3.0.jar
+
+resources:
+  jobs:
+    drools_dmn_enterprise_solution_job:
+      name: drools-dmn-enterprise-solution-job
+      tasks:
+        - task_key: parse_dmn_collect_metadata
+          new_cluster:
+            spark_version: 18.1.x-scala2.13
+            node_type_id: Standard_D4s_v3
+            num_workers: 4
+            data_security_mode: SINGLE_USER
+            single_user_name: siliconpot.architect@gmail.com
+          libraries:
+            - jar: ${var.jar_volume_path}
+          notebook_task:
+            notebook_path: ${workspace.file_path}/databricks/notebooks/drools_dmn_parse_and_validate
+            base_parameters:
+              dmn_file_path: dbfs:/Volumes/dbx_practice_ws/default/dbx-practice-volume/customer-approval-v1.dmn
+
+        - task_key: evaluate_dmn_and_write_output
+          depends_on:
+            - task_key: parse_dmn_collect_metadata
+          new_cluster:
+            spark_version: 18.1.x-scala2.13
+            node_type_id: Standard_D4s_v3
+            num_workers: 4
+            data_security_mode: SINGLE_USER
+            single_user_name: siliconpot.architect@gmail.com
+          libraries:
+            - jar: ${var.jar_volume_path}
+          notebook_task:
+            notebook_path: ${workspace.file_path}/databricks/notebooks/drools_dmn_evaluate_and_write
+            base_parameters:
+              dmn_file_path: dbfs:/Volumes/dbx_practice_ws/default/dbx-practice-volume/customer-approval-v1.dmn
+              input_table: default.drools_dmn_customer_approval_input
+              output_table: default.drools_dmn_customer_approval_output
+              row_limit: "0"
+              repartition_count: "0"
+              write_mode: overwrite
+
+targets:
+  dev:
+    mode: production
+    default: true
+    workspace:
+      host: https://adb-7405609760217234.14.azuredatabricks.net
+      root_path: /Workspace/drools-dmn-enterprise-solution-v3/.bundle
+      file_path: /Workspace/drools-dmn-enterprise-solution-v3

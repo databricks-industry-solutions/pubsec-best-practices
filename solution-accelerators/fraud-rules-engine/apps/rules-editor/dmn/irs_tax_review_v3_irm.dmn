@@ -1,0 +1,636 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<dmn:definitions
+  xmlns:dmn="https://www.omg.org/spec/DMN/20230324/MODEL/"
+  xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/"
+  xmlns:kie="https://kie.org/dmn/extensions/1.0"
+  xmlns:dmndi="https://www.omg.org/spec/DMN/20230324/DMNDI/"
+  xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/"
+  xmlns:feel="https://www.omg.org/spec/DMN/20230324/FEEL/"
+  id="_IRS_TAX_REVIEW_V3_IRM"
+  name="IRS Return Review — IRM 25.1.2 (21 Rules)"
+  expressionLanguage="https://www.omg.org/spec/DMN/20230324/FEEL/"
+  typeLanguage="https://www.omg.org/spec/DMN/20230324/FEEL/"
+  namespace="https://irs.gov/rules/rrp-v3-irm">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       INPUT DATA — 17 flat inputs matching Scala UDF ctx.set() names
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:inputData id="_in_filing_status" name="filing_status">
+    <dmn:variable id="_var_filing_status" name="filing_status" typeRef="string" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_agi" name="agi">
+    <dmn:variable id="_var_agi" name="agi" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_deduction_ratio" name="deduction_ratio">
+    <dmn:variable id="_var_deduction_ratio" name="deduction_ratio" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_foreign_income" name="foreign_income">
+    <dmn:variable id="_var_foreign_income" name="foreign_income" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_se_income" name="se_income">
+    <dmn:variable id="_var_se_income" name="se_income" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_charitable_ratio" name="charitable_ratio">
+    <dmn:variable id="_var_charitable_ratio" name="charitable_ratio" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_prior_audit" name="prior_audit">
+    <dmn:variable id="_var_prior_audit" name="prior_audit" typeRef="boolean" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_reported_income_gap" name="reported_income_gap">
+    <dmn:variable id="_var_reported_income_gap" name="reported_income_gap" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_num_w2_forms" name="num_w2_forms">
+    <dmn:variable id="_var_num_w2_forms" name="num_w2_forms" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_w2_agi_ratio" name="w2_agi_ratio">
+    <dmn:variable id="_var_w2_agi_ratio" name="w2_agi_ratio" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_years_not_filed" name="years_not_filed">
+    <dmn:variable id="_var_years_not_filed" name="years_not_filed" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_amended_returns_count" name="amended_returns_count">
+    <dmn:variable id="_var_amended_returns_count" name="amended_returns_count" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_num_dependents_claimed" name="num_dependents_claimed">
+    <dmn:variable id="_var_num_dependents_claimed" name="num_dependents_claimed" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_dependents" name="dependents">
+    <dmn:variable id="_var_dependents" name="dependents" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_employment_type" name="employment_type">
+    <dmn:variable id="_var_employment_type" name="employment_type" typeRef="string" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_digital_asset_transactions" name="digital_asset_transactions">
+    <dmn:variable id="_var_digital_asset_transactions" name="digital_asset_transactions" typeRef="number" />
+  </dmn:inputData>
+  <dmn:inputData id="_in_digital_asset_proceeds" name="digital_asset_proceeds">
+    <dmn:variable id="_var_digital_asset_proceeds" name="digital_asset_proceeds" typeRef="number" />
+  </dmn:inputData>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION A — Income Risk Score (IRM 25.1.2.2)
+       Rules: R1, R2, R3, R8, R9, R10
+       Hit policy: COLLECT SUM
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:decision id="_dec_income" name="Income Risk Score">
+    <dmn:variable id="_dvar_income" name="Income Risk Score" typeRef="number" />
+    <dmn:informationRequirement id="_ir_inc_agi">
+      <dmn:requiredInput href="#_in_agi" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_inc_fi">
+      <dmn:requiredInput href="#_in_foreign_income" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_inc_se">
+      <dmn:requiredInput href="#_in_se_income" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_inc_rig">
+      <dmn:requiredInput href="#_in_reported_income_gap" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_inc_nw2">
+      <dmn:requiredInput href="#_in_num_w2_forms" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_inc_w2r">
+      <dmn:requiredInput href="#_in_w2_agi_ratio" />
+    </dmn:informationRequirement>
+
+    <dmn:decisionTable id="_dt_income" hitPolicy="COLLECT" aggregation="SUM">
+      <dmn:input id="_dt_inc_i1" label="AGI">
+        <dmn:inputExpression id="_dt_inc_ie1" typeRef="number"><dmn:text>agi</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_inc_i2" label="Foreign Income">
+        <dmn:inputExpression id="_dt_inc_ie2" typeRef="number"><dmn:text>foreign_income</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_inc_i3" label="SE Income">
+        <dmn:inputExpression id="_dt_inc_ie3" typeRef="number"><dmn:text>se_income</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_inc_i4" label="Income Gap">
+        <dmn:inputExpression id="_dt_inc_ie4" typeRef="number"><dmn:text>reported_income_gap</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_inc_i5" label="W-2 Count">
+        <dmn:inputExpression id="_dt_inc_ie5" typeRef="number"><dmn:text>num_w2_forms</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_inc_i6" label="W-2/AGI Ratio">
+        <dmn:inputExpression id="_dt_inc_ie6" typeRef="number"><dmn:text>w2_agi_ratio</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="_dt_inc_o" label="Income Risk Points" typeRef="number" />
+      <dmn:annotation name="IRM Reference" />
+
+      <!-- R1: High income — AGI > $500K -->
+      <dmn:rule id="_r1">
+        <dmn:inputEntry id="_r1i1"><dmn:text>&gt; 500000</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r1i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r1i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r1i4"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r1i5"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r1i6"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r1o"><dmn:text>25</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.2(3) — High-income scrutiny</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R2: FBAR/FATCA — Foreign income > $10K -->
+      <dmn:rule id="_r2">
+        <dmn:inputEntry id="_r2i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r2i2"><dmn:text>&gt; 10000</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r2i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r2i4"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r2i5"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r2i6"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r2o"><dmn:text>20</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.2(5) — FBAR/FATCA compliance risk</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R3: Schedule C risk — SE income > $200K -->
+      <dmn:rule id="_r3">
+        <dmn:inputEntry id="_r3i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r3i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r3i3"><dmn:text>&gt; 200000</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r3i4"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r3i5"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r3i6"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r3o"><dmn:text>15</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.2(4) — Schedule C audit risk</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R8: Unreported income — bank deposits exceed reported by >25% -->
+      <dmn:rule id="_r8">
+        <dmn:inputEntry id="_r8i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r8i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r8i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r8i4"><dmn:text>&gt; 0.25</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r8i5"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r8i6"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r8o"><dmn:text>20</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.2(1) — Bank deposits method</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R9: Severe income gap — deposits exceed reported by >50% -->
+      <dmn:rule id="_r9">
+        <dmn:inputEntry id="_r9i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r9i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r9i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r9i4"><dmn:text>&gt; 0.50</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r9i5"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r9i6"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r9o"><dmn:text>10</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.2(1) — Severe income gap</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R10: W-2/AGI discrepancy — multiple W-2s but low wage ratio -->
+      <dmn:rule id="_r10">
+        <dmn:inputEntry id="_r10i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r10i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r10i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r10i4"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r10i5"><dmn:text>&gt;= 2</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r10i6"><dmn:text>&lt; 0.5</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r10o"><dmn:text>10</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.2(2) — Wage income mismatch</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION B — Deduction Risk Score (IRM 25.1.2.3)
+       Rules: R4, R5, R11, R12
+       Hit policy: COLLECT SUM
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:decision id="_dec_deduction" name="Deduction Risk Score">
+    <dmn:variable id="_dvar_deduction" name="Deduction Risk Score" typeRef="number" />
+    <dmn:informationRequirement id="_ir_ded_dr">
+      <dmn:requiredInput href="#_in_deduction_ratio" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_ded_cr">
+      <dmn:requiredInput href="#_in_charitable_ratio" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_ded_ndc">
+      <dmn:requiredInput href="#_in_num_dependents_claimed" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_ded_dep">
+      <dmn:requiredInput href="#_in_dependents" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_ded_et">
+      <dmn:requiredInput href="#_in_employment_type" />
+    </dmn:informationRequirement>
+
+    <dmn:decisionTable id="_dt_deduction" hitPolicy="COLLECT" aggregation="SUM">
+      <dmn:input id="_dt_ded_i1" label="Deduction Ratio">
+        <dmn:inputExpression id="_dt_ded_ie1" typeRef="number"><dmn:text>deduction_ratio</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_ded_i2" label="Charitable Ratio">
+        <dmn:inputExpression id="_dt_ded_ie2" typeRef="number"><dmn:text>charitable_ratio</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_ded_i3" label="Dependents Claimed">
+        <dmn:inputExpression id="_dt_ded_ie3" typeRef="number"><dmn:text>num_dependents_claimed</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_ded_i4" label="Dependents Verified">
+        <dmn:inputExpression id="_dt_ded_ie4" typeRef="number"><dmn:text>dependents</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_ded_i5" label="Employment Type">
+        <dmn:inputExpression id="_dt_ded_ie5" typeRef="string"><dmn:text>employment_type</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="_dt_ded_o" label="Deduction Risk Points" typeRef="number" />
+      <dmn:annotation name="IRM Reference" />
+
+      <!-- R4: Disproportionate deductions — ratio > 50% -->
+      <dmn:rule id="_r4">
+        <dmn:inputEntry id="_r4i1"><dmn:text>&gt; 0.5</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r4i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r4i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r4i4"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r4i5"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r4o"><dmn:text>20</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.3(1) — Fictitious/inflated deductions</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R5: Charitable overstatement — ratio > 30% -->
+      <dmn:rule id="_r5">
+        <dmn:inputEntry id="_r5i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r5i2"><dmn:text>&gt; 0.3</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r5i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r5i4"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r5i5"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r5o"><dmn:text>15</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.3(2) — Charitable deduction overstatement</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R11: False dependency claims — claimed > verified + 1 -->
+      <dmn:rule id="_r11">
+        <dmn:inputEntry id="_r11i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r11i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r11i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r11i4"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r11i5"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r11o"><dmn:text>if num_dependents_claimed > dependents + 1 then 10 else 0</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.3(3) — False dependency claims</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R12: Business expense as personal — W2 employee with deduction ratio > 40% -->
+      <dmn:rule id="_r12">
+        <dmn:inputEntry id="_r12i1"><dmn:text>&gt; 0.4</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r12i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r12i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r12i4"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r12i5"><dmn:text>"W2"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r12o"><dmn:text>10</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.3(4) — Personal expenses claimed as business</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION C — Filing/Conduct Risk Score (IRM 25.1.2.4)
+       Rules: R6, R7, R13, R14
+       Hit policy: COLLECT SUM
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:decision id="_dec_filing" name="Filing Conduct Risk Score">
+    <dmn:variable id="_dvar_filing" name="Filing Conduct Risk Score" typeRef="number" />
+    <dmn:informationRequirement id="_ir_fil_fs">
+      <dmn:requiredInput href="#_in_filing_status" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_fil_pa">
+      <dmn:requiredInput href="#_in_prior_audit" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_fil_ynf">
+      <dmn:requiredInput href="#_in_years_not_filed" />
+    </dmn:informationRequirement>
+
+    <dmn:decisionTable id="_dt_filing" hitPolicy="COLLECT" aggregation="SUM">
+      <dmn:input id="_dt_fil_i1" label="Filing Status">
+        <dmn:inputExpression id="_dt_fil_ie1" typeRef="string"><dmn:text>filing_status</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_fil_i2" label="Prior Audit">
+        <dmn:inputExpression id="_dt_fil_ie2" typeRef="boolean"><dmn:text>prior_audit</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_fil_i3" label="Years Not Filed">
+        <dmn:inputExpression id="_dt_fil_ie3" typeRef="number"><dmn:text>years_not_filed</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="_dt_fil_o" label="Filing Risk Points" typeRef="number" />
+      <dmn:annotation name="IRM Reference" />
+
+      <!-- R6: MFS filing status -->
+      <dmn:rule id="_r6">
+        <dmn:inputEntry id="_r6i1"><dmn:text>"MFS"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r6i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r6i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r6o"><dmn:text>10</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.4(1) — Higher audit rate filing status</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R7: Prior audit -->
+      <dmn:rule id="_r7">
+        <dmn:inputEntry id="_r7i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r7i2"><dmn:text>true</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r7i3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r7o"><dmn:text>15</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.4(2) — Repeat audit candidate</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R13: Multi-year non-filing — 2+ years -->
+      <dmn:rule id="_r13">
+        <dmn:inputEntry id="_r13i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r13i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r13i3"><dmn:text>&gt;= 2</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r13o"><dmn:text>15</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.4(3) — Multi-year non-filing</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R14: Single year non-filing -->
+      <dmn:rule id="_r14">
+        <dmn:inputEntry id="_r14i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r14i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r14i3"><dmn:text>1</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r14o"><dmn:text>5</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.4(3) — Single year non-filing</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION D — Books/Records Risk Score (IRM 25.1.2.5)
+       Rules: R15, R16
+       Hit policy: COLLECT SUM
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:decision id="_dec_books" name="Books Records Risk Score">
+    <dmn:variable id="_dvar_books" name="Books Records Risk Score" typeRef="number" />
+    <dmn:informationRequirement id="_ir_bk_arc">
+      <dmn:requiredInput href="#_in_amended_returns_count" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_bk_dr">
+      <dmn:requiredInput href="#_in_deduction_ratio" />
+    </dmn:informationRequirement>
+
+    <dmn:decisionTable id="_dt_books" hitPolicy="COLLECT" aggregation="SUM">
+      <dmn:input id="_dt_bk_i1" label="Amended Returns">
+        <dmn:inputExpression id="_dt_bk_ie1" typeRef="number"><dmn:text>amended_returns_count</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_bk_i2" label="Deduction Ratio">
+        <dmn:inputExpression id="_dt_bk_ie2" typeRef="number"><dmn:text>deduction_ratio</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="_dt_bk_o" label="Books Risk Points" typeRef="number" />
+      <dmn:annotation name="IRM Reference" />
+
+      <!-- R15: Frequent amendments — 2+ in 3 years -->
+      <dmn:rule id="_r15">
+        <dmn:inputEntry id="_r15i1"><dmn:text>&gt;= 2</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r15i2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r15o"><dmn:text>10</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.5(1) — Pattern of amendments</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R16: Amendment + high deductions -->
+      <dmn:rule id="_r16">
+        <dmn:inputEntry id="_r16i1"><dmn:text>&gt;= 1</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r16i2"><dmn:text>&gt; 0.4</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r16o"><dmn:text>5</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.5(2) — Amendments to inflate deductions</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION E — Employment Tax Risk Score (IRM 25.1.2.6)
+       Rules: R17, R18
+       Hit policy: COLLECT SUM
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:decision id="_dec_employment" name="Employment Tax Risk Score">
+    <dmn:variable id="_dvar_employment" name="Employment Tax Risk Score" typeRef="number" />
+    <dmn:informationRequirement id="_ir_emp_et">
+      <dmn:requiredInput href="#_in_employment_type" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_emp_se">
+      <dmn:requiredInput href="#_in_se_income" />
+    </dmn:informationRequirement>
+
+    <dmn:decisionTable id="_dt_employment" hitPolicy="COLLECT" aggregation="SUM">
+      <dmn:input id="_dt_emp_i1" label="Employment Type">
+        <dmn:inputExpression id="_dt_emp_ie1" typeRef="string"><dmn:text>employment_type</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_emp_i2" label="SE Income">
+        <dmn:inputExpression id="_dt_emp_ie2" typeRef="number"><dmn:text>se_income</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="_dt_emp_o" label="Employment Risk Points" typeRef="number" />
+      <dmn:annotation name="IRM Reference" />
+
+      <!-- R17: Cash-intensive business — CASH_INTENSIVE + SE > $100K -->
+      <dmn:rule id="_r17">
+        <dmn:inputEntry id="_r17i1"><dmn:text>"CASH_INTENSIVE"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r17i2"><dmn:text>&gt; 100000</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r17o"><dmn:text>15</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.6(1) — Cash wage patterns</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R18: Worker misclassification — 1099 + SE > $150K -->
+      <dmn:rule id="_r18">
+        <dmn:inputEntry id="_r18i1"><dmn:text>"1099"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r18i2"><dmn:text>&gt; 150000</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r18o"><dmn:text>10</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.6(2) — Worker misclassification</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION F — Digital Asset Risk Score (IRM 25.1.2.7)
+       Rules: R19, R20, R21
+       Hit policy: COLLECT SUM
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:decision id="_dec_digital" name="Digital Asset Risk Score">
+    <dmn:variable id="_dvar_digital" name="Digital Asset Risk Score" typeRef="number" />
+    <dmn:informationRequirement id="_ir_da_dat">
+      <dmn:requiredInput href="#_in_digital_asset_transactions" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_da_dap">
+      <dmn:requiredInput href="#_in_digital_asset_proceeds" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_da_agi">
+      <dmn:requiredInput href="#_in_agi" />
+    </dmn:informationRequirement>
+
+    <dmn:decisionTable id="_dt_digital" hitPolicy="COLLECT" aggregation="SUM">
+      <dmn:input id="_dt_da_i1" label="DA Transactions">
+        <dmn:inputExpression id="_dt_da_ie1" typeRef="number"><dmn:text>digital_asset_transactions</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="_dt_da_i2" label="DA Proceeds">
+        <dmn:inputExpression id="_dt_da_ie2" typeRef="number"><dmn:text>digital_asset_proceeds</dmn:text></dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="_dt_da_o" label="Digital Asset Risk Points" typeRef="number" />
+      <dmn:annotation name="IRM Reference" />
+
+      <!-- R19: Unreported crypto — transactions but no capital gains reported.
+           Uses FEEL output expression since we need to check a column (capital_gains)
+           not present as an input column in this decision table. We reference agi as
+           a proxy — the real check is digital_asset_transactions > 0 with no gains.
+           NOTE: capital_gains is not passed to Drools in v3; this rule fires when
+           transactions > 0 and proceeds > 0 (conservative proxy). -->
+      <dmn:rule id="_r19">
+        <dmn:inputEntry id="_r19i1"><dmn:text>&gt; 0</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r19i2"><dmn:text>&gt; 0</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r19o"><dmn:text>15</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.7(1) — Unreported digital asset gains</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R20: Large digital asset activity — proceeds > $100K -->
+      <dmn:rule id="_r20">
+        <dmn:inputEntry id="_r20i1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r20i2"><dmn:text>&gt; 100000</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r20o"><dmn:text>10</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.7(2) — Large digital asset transactions</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+
+      <!-- R21: Crypto proceeds gap — proceeds > $50K (proxy for understated gains) -->
+      <dmn:rule id="_r21">
+        <dmn:inputEntry id="_r21i1"><dmn:text>&gt; 5</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="_r21i2"><dmn:text>&gt; 50000</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="_r21o"><dmn:text>5</dmn:text></dmn:outputEntry>
+        <dmn:annotationEntry><dmn:text>IRM 25.1.2.7(3) — Digital asset proceeds gap</dmn:text></dmn:annotationEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DECISION — Tax Review Scoring (Composite)
+       Sums the 6 sub-decision scores.
+       This is the decision the batch scoring UDF looks for by name.
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmn:decision id="_dec_composite" name="Tax Review Scoring">
+    <dmn:variable id="_dvar_composite" name="Tax Review Scoring" typeRef="number" />
+    <dmn:informationRequirement id="_ir_comp_inc">
+      <dmn:requiredDecision href="#_dec_income" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_comp_ded">
+      <dmn:requiredDecision href="#_dec_deduction" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_comp_fil">
+      <dmn:requiredDecision href="#_dec_filing" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_comp_bk">
+      <dmn:requiredDecision href="#_dec_books" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_comp_emp">
+      <dmn:requiredDecision href="#_dec_employment" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="_ir_comp_da">
+      <dmn:requiredDecision href="#_dec_digital" />
+    </dmn:informationRequirement>
+
+    <dmn:literalExpression id="_le_composite">
+      <dmn:text>Income Risk Score + Deduction Risk Score + Filing Conduct Risk Score + Books Records Risk Score + Employment Tax Risk Score + Digital Asset Risk Score</dmn:text>
+    </dmn:literalExpression>
+  </dmn:decision>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       DRD LAYOUT — Decision Requirements Diagram
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram id="_diagram" name="IRS IRM 25.1.2 Fraud Detection — 21 Rules">
+
+      <!-- Row 3 (bottom): Input data — 17 inputs arranged in a row -->
+      <dmndi:DMNShape id="_s_in_fs" dmnElementRef="_in_filing_status">
+        <dc:Bounds x="20" y="600" width="120" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_agi" dmnElementRef="_in_agi">
+        <dc:Bounds x="150" y="600" width="100" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_dr" dmnElementRef="_in_deduction_ratio">
+        <dc:Bounds x="260" y="600" width="120" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_fi" dmnElementRef="_in_foreign_income">
+        <dc:Bounds x="390" y="600" width="120" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_se" dmnElementRef="_in_se_income">
+        <dc:Bounds x="520" y="600" width="100" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_cr" dmnElementRef="_in_charitable_ratio">
+        <dc:Bounds x="630" y="600" width="120" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_pa" dmnElementRef="_in_prior_audit">
+        <dc:Bounds x="760" y="600" width="100" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_rig" dmnElementRef="_in_reported_income_gap">
+        <dc:Bounds x="20" y="660" width="140" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_nw2" dmnElementRef="_in_num_w2_forms">
+        <dc:Bounds x="170" y="660" width="120" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_w2r" dmnElementRef="_in_w2_agi_ratio">
+        <dc:Bounds x="300" y="660" width="120" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_ynf" dmnElementRef="_in_years_not_filed">
+        <dc:Bounds x="430" y="660" width="120" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_arc" dmnElementRef="_in_amended_returns_count">
+        <dc:Bounds x="560" y="660" width="150" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_ndc" dmnElementRef="_in_num_dependents_claimed">
+        <dc:Bounds x="20" y="720" width="160" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_dep" dmnElementRef="_in_dependents">
+        <dc:Bounds x="190" y="720" width="100" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_et" dmnElementRef="_in_employment_type">
+        <dc:Bounds x="300" y="720" width="130" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_dat" dmnElementRef="_in_digital_asset_transactions">
+        <dc:Bounds x="440" y="720" width="170" height="45" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_in_dap" dmnElementRef="_in_digital_asset_proceeds">
+        <dc:Bounds x="620" y="720" width="160" height="45" />
+      </dmndi:DMNShape>
+
+      <!-- Row 2: Sub-decisions (6 boxes) -->
+      <dmndi:DMNShape id="_s_income" dmnElementRef="_dec_income">
+        <dc:Bounds x="20" y="420" width="180" height="60" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_deduction" dmnElementRef="_dec_deduction">
+        <dc:Bounds x="220" y="420" width="180" height="60" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_filing" dmnElementRef="_dec_filing">
+        <dc:Bounds x="420" y="420" width="180" height="60" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_books" dmnElementRef="_dec_books">
+        <dc:Bounds x="20" y="340" width="180" height="60" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_employment" dmnElementRef="_dec_employment">
+        <dc:Bounds x="220" y="340" width="200" height="60" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="_s_digital" dmnElementRef="_dec_digital">
+        <dc:Bounds x="440" y="340" width="180" height="60" />
+      </dmndi:DMNShape>
+
+      <!-- Row 1: Composite -->
+      <dmndi:DMNShape id="_s_composite" dmnElementRef="_dec_composite">
+        <dc:Bounds x="220" y="220" width="220" height="60" />
+      </dmndi:DMNShape>
+
+      <!-- Edges: sub-decisions → composite -->
+      <dmndi:DMNEdge id="_e_inc_comp" dmnElementRef="_ir_comp_inc">
+        <di:waypoint x="110" y="420" /><di:waypoint x="280" y="280" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="_e_ded_comp" dmnElementRef="_ir_comp_ded">
+        <di:waypoint x="310" y="420" /><di:waypoint x="330" y="280" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="_e_fil_comp" dmnElementRef="_ir_comp_fil">
+        <di:waypoint x="510" y="420" /><di:waypoint x="380" y="280" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="_e_bk_comp" dmnElementRef="_ir_comp_bk">
+        <di:waypoint x="110" y="340" /><di:waypoint x="280" y="280" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="_e_emp_comp" dmnElementRef="_ir_comp_emp">
+        <di:waypoint x="320" y="340" /><di:waypoint x="330" y="280" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="_e_da_comp" dmnElementRef="_ir_comp_da">
+        <di:waypoint x="530" y="340" /><di:waypoint x="380" y="280" />
+      </dmndi:DMNEdge>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+
+</dmn:definitions>

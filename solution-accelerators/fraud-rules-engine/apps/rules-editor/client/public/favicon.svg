@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#0f2940"/>
+  <!-- Three stacked horizontal bars suggesting data/rules layers -->
+  <rect x="6" y="8" width="20" height="3" rx="1.5" fill="#2563eb"/>
+  <rect x="6" y="13" width="14" height="3" rx="1.5" fill="#60a5fa"/>
+  <rect x="6" y="18" width="17" height="3" rx="1.5" fill="#93c5fd"/>
+  <!-- Small triangle/arrow at bottom right suggesting scoring -->
+  <polygon points="18,24 26,24 22,28" fill="#2563eb" opacity="0.8"/>
+</svg>

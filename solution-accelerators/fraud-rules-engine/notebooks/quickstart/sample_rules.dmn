@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<dmn:definitions
+  xmlns:dmn="https://www.omg.org/spec/DMN/20230324/MODEL/"
+  xmlns:feel="https://www.omg.org/spec/DMN/20230324/FEEL/"
+  id="_QUICKSTART_SAMPLE"
+  name="Quickstart Sample Rules"
+  expressionLanguage="https://www.omg.org/spec/DMN/20230324/FEEL/"
+  typeLanguage="https://www.omg.org/spec/DMN/20230324/FEEL/"
+  namespace="https://example.com/dmn/quickstart">
+
+  <!--
+    Quickstart DMN — three flat number inputs, three rules, one collect-sum decision.
+
+    Inputs (must match column names in your input table, lowercase snake_case):
+      - agi              total adjusted gross income
+      - total_deductions itemized + standard deductions claimed
+      - foreign_income   income reported on Schedule B / Form 8938
+
+    Decisions:
+      - High_Deduction_Risk    — fires when deductions > 50% of AGI
+      - Foreign_Income_Risk    — fires when foreign_income > 10000
+      - Low_Income_High_Spend  — fires when AGI < 30000 but deductions > 5000
+      - Risk_Score             — sum of the three component scores (0-100)
+      - Audit_Action           — PASS / REVIEW / FLAG threshold mapping
+
+    Wire it in 02_score_one_table.py with:
+      dmn_path     = /path/to/sample_rules.dmn
+      input_table  = your_catalog.your_schema.your_returns_table
+  -->
+
+  <!-- ─── Inputs ─── -->
+  <dmn:inputData id="_in_agi" name="agi">
+    <dmn:variable name="agi" typeRef="number"/>
+  </dmn:inputData>
+  <dmn:inputData id="_in_total_deductions" name="total_deductions">
+    <dmn:variable name="total_deductions" typeRef="number"/>
+  </dmn:inputData>
+  <dmn:inputData id="_in_foreign_income" name="foreign_income">
+    <dmn:variable name="foreign_income" typeRef="number"/>
+  </dmn:inputData>
+
+  <!-- ─── Component scores (literal expressions) ─── -->
+  <dmn:decision id="_dec_high_ded" name="High_Deduction_Risk">
+    <dmn:variable name="High_Deduction_Risk" typeRef="number"/>
+    <dmn:informationRequirement><dmn:requiredInput href="#_in_agi"/></dmn:informationRequirement>
+    <dmn:informationRequirement><dmn:requiredInput href="#_in_total_deductions"/></dmn:informationRequirement>
+    <dmn:literalExpression>
+      <dmn:text>if agi != null and agi &gt; 0 and total_deductions != null and total_deductions / agi &gt; 0.5 then 40 else 0</dmn:text>
+    </dmn:literalExpression>
+  </dmn:decision>
+
+  <dmn:decision id="_dec_foreign" name="Foreign_Income_Risk">
+    <dmn:variable name="Foreign_Income_Risk" typeRef="number"/>
+    <dmn:informationRequirement><dmn:requiredInput href="#_in_foreign_income"/></dmn:informationRequirement>
+    <dmn:literalExpression>
+      <dmn:text>if foreign_income != null and foreign_income &gt; 10000 then 30 else 0</dmn:text>
+    </dmn:literalExpression>
+  </dmn:decision>
+
+  <dmn:decision id="_dec_low_inc" name="Low_Income_High_Spend">
+    <dmn:variable name="Low_Income_High_Spend" typeRef="number"/>
+    <dmn:informationRequirement><dmn:requiredInput href="#_in_agi"/></dmn:informationRequirement>
+    <dmn:informationRequirement><dmn:requiredInput href="#_in_total_deductions"/></dmn:informationRequirement>
+    <dmn:literalExpression>
+      <dmn:text>if agi != null and agi &lt; 30000 and total_deductions != null and total_deductions &gt; 5000 then 30 else 0</dmn:text>
+    </dmn:literalExpression>
+  </dmn:decision>
+
+  <!-- ─── Aggregate risk score ─── -->
+  <dmn:decision id="_dec_risk_score" name="Risk_Score">
+    <dmn:variable name="Risk_Score" typeRef="number"/>
+    <dmn:informationRequirement><dmn:requiredDecision href="#_dec_high_ded"/></dmn:informationRequirement>
+    <dmn:informationRequirement><dmn:requiredDecision href="#_dec_foreign"/></dmn:informationRequirement>
+    <dmn:informationRequirement><dmn:requiredDecision href="#_dec_low_inc"/></dmn:informationRequirement>
+    <dmn:literalExpression>
+      <dmn:text>(if High_Deduction_Risk = null then 0 else High_Deduction_Risk) + (if Foreign_Income_Risk = null then 0 else Foreign_Income_Risk) + (if Low_Income_High_Spend = null then 0 else Low_Income_High_Spend)</dmn:text>
+    </dmn:literalExpression>
+  </dmn:decision>
+
+  <!-- ─── Final action ─── -->
+  <dmn:decision id="_dec_action" name="Audit_Action">
+    <dmn:variable name="Audit_Action" typeRef="string"/>
+    <dmn:informationRequirement><dmn:requiredDecision href="#_dec_risk_score"/></dmn:informationRequirement>
+    <dmn:literalExpression>
+      <dmn:text>if Risk_Score &gt;= 60 then "FLAG" else if Risk_Score &gt;= 30 then "REVIEW" else "PASS"</dmn:text>
+    </dmn:literalExpression>
+  </dmn:decision>
+
+</dmn:definitions>
