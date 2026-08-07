@@ -1,12 +1,23 @@
-"""Recent clusters with logs — the PRIMARY browse source (SP-sourced metadata).
+"""Legacy SP-sourced "recent clusters with logs" source — CURRENTLY UNUSED.
 
-WHY (spec §3.3, runs-visibility-design): the recent-RUNS list (SP Jobs API)
-needs per-job grants and reflects SP visibility, not the user — a maintenance
-treadmill. This module uses a much better source: the app SP's ``clusters.list``
-returns clusters (incl. TERMINATED) WITHOUT any per-cluster grant, and each
-carries ``cluster_log_conf`` -> the CLD Volume path. We enumerate clusters via
-the SP, keep the ones whose CLD destination is an allowlisted Volume, and return
-a rich, low-maintenance "clusters that have executor logs" list.
+NOTE: ``/api/clusters`` no longer uses this module. The recent-clusters list is
+now built from the CLD **Volume itself**, listed with the viewing user's OBO
+token (see ``app.get_clusters`` -> ``browse.browse_root``), then enriched with
+friendly job names via ``cluster_names``. That is self-maintaining and needs no
+SP or per-cluster grants to populate. This module is kept for reference as an
+alternative source; it is not imported by the app.
+
+WHY THE SWITCH: the SP's ``clusters.list`` only returns clusters the SP can
+*view*, so freshly-created job clusters (owned by users' jobs, not the SP) never
+appeared without per-job grants — not self-maintaining. Listing the Volume the
+user can read solves that: any cluster that *delivered* logs shows up, UC-gated
+per user.
+
+WHAT THIS MODULE DID: the app SP's ``clusters.list`` returns clusters (incl.
+TERMINATED) without any per-cluster grant, and each carries ``cluster_log_conf``
+-> the CLD Volume path. It enumerated clusters via the SP, kept the ones whose
+CLD destination is an allowlisted Volume, and returned a "clusters that have
+executor logs" list.
 
 IDENTITY (spec §2, §3.3) — this is METADATA ONLY:
   - The SP ``clusters.list`` is used to enumerate cluster metadata + CLD PATHS.

@@ -47,16 +47,24 @@ per-request and never cached, logged, or echoed.
 ## Finding logs (three low-friction sources)
 
 Discovering *which* logs exist is the hard part when jobs age out. The app
-offers three, in order of friction:
+offers three, in order of friction. Crucially, discovery is driven by the CLD
+**Volume itself** (listed with the user's OBO token), **not** by the service
+principal's `clusters.list` — so any cluster that *delivered* logs shows up
+with **zero** SP or per-cluster grants, and it's self-maintaining.
 
-1. **Recent clusters with logs** (primary) — the SP calls `clusters.list` (no
-   per-cluster grant needed) and surfaces clusters whose configured CLD
-   destination is under an allowlisted root.
-2. **Browse a log root** (secondary) — user-OBO Volume listing of an
-   allowlisted root; survives clusters aging out of the API, and shows only
-   what the user can read.
+1. **Recent clusters with logs** (primary) — lists the `<cluster-id>`
+   directories under the allowlisted CLD root(s) with the **viewing user's OBO
+   token** (so Unity Catalog gates which clusters each user sees), aggregated
+   across roots. Each row is then enriched **best-effort** via the SP
+   (`clusters.get` → `jobs.get`) to show the friendly **job name + run ID**;
+   if the job was deleted, the row falls back to `Job <id>` — the list never
+   breaks and needs no SP grant to populate.
+2. **Browse a log root** (secondary) — the same user-OBO Volume listing,
+   scoped to a single root you pick; useful for drilling into one team's
+   Volume.
 3. **Look up by run / job / cluster ID** — paste an ID; the SP resolves it to a
-   CLD path.
+   CLD path (`clusters.get`/`jobs.get` on a specific ID — no `clusters.list`
+   enumeration needed).
 
 ## Structure
 

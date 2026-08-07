@@ -17,13 +17,16 @@ app/
 ├── requirements-dev.txt  # local/CI pins mirroring the base-image versions
 ├── backend/
 │   ├── app.py            # FastAPI routes: /healthz, /api/runs, /api/clusters, /api/browse,
-│   │                     #   /api/log-files/{ref}, SPA catch-all
+│   │                     #   /api/log-roots, /api/log-files/{ref}, SPA catch-all
 │   ├── auth.py           # per-request user WorkspaceClient from x-forwarded-access-token (OBO)
 │   ├── sp_client.py      # app service-principal client (Jobs/Clusters metadata only)
 │   ├── resolver.py       # run/job/cluster ID -> CLD path resolution + reason codes
 │   ├── runs.py           # recent runs listing (expand_tasks -> cluster_id, has_logs)
-│   ├── clusters_source.py# SP clusters.list -> clusters with CLD under an allowlisted root
 │   ├── browse.py         # user-OBO Volume listing of an allowlisted log root
+│   │                     #   (also backs /api/clusters — the recent-clusters list)
+│   ├── cluster_names.py  # SP best-effort enrichment: cluster-id -> job-<id>-run-<id>
+│   │                     #   -> friendly job name (for the /api/clusters rows)
+│   ├── clusters_source.py# (unused) legacy SP clusters.list source; kept for reference
 │   ├── filerefs.py       # opaque HMAC-signed file refs (mint/verify: path+kind+user+expiry)
 │   ├── logfiles.py       # strict log-file classification (stdout/stderr/*.log/rotated)
 │   ├── logs.py           # read one log file by ref: tail / full (capped)

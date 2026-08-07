@@ -13,7 +13,7 @@ prebuilt and committed.
   EMPTY (comments only) → the deploy installs nothing from PyPI.
 - **Frontend** is **prebuilt**: `app/frontend/dist/` is committed and served as
   static files. No `npm install` / Node registry access happens at deploy.
-- Verified: the full backend suite (145 tests) passes against the exact
+- Verified: the full backend suite (151 tests) passes against the exact
   base-image versions, and a live deploy with the empty requirements booted with
   **0 PyPI fetch lines** and served real `/api/runs` + `/api/log-files` requests.
 
