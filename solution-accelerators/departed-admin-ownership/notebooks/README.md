@@ -61,3 +61,8 @@ dry-run-first design as the bundle job, driven by widgets.
   rights, or workspace/UC calls return `401 Unauthorized`.
 - Some workspace object types treat `IS_OWNER` as immutable; those rows log an error
   in the `result` column rather than aborting the run.
+- **`run_as` grant covers only the job ACL.** A reassigned job also needs the target
+  SP to have the compute, Unity Catalog data, SQL warehouse, and secret/storage
+  access its tasks use — this notebook does not check or grant those. Grant them to
+  the SP (ideally via a group) before/with the change, then validate with a manual
+  **Run now** per workspace. See the run_as caveat in the accelerator `README.md`.

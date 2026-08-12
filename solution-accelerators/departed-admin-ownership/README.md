@@ -61,6 +61,24 @@ reassigning `run_as`. Left `false` (the default), the transfer still reassigns
 `run_as` but **warns** on jobs where the SP lacks access, so you can grant it
 out-of-band instead.
 
+> **Caveat — job-level CAN_MANAGE is necessary but not sufficient.** The preflight
+> and grant cover only the **job ACL**. A job reassigned to a service principal also
+> needs that SP to hold the access its tasks actually use, which this accelerator
+> does **not** check or grant:
+> - **Compute** — `CAN_ATTACH_TO`/`CAN_MANAGE` on any all-purpose cluster the job
+>   uses, or instance-pool/policy access for job clusters.
+> - **Unity Catalog data** — `USE CATALOG`/`USE SCHEMA` + `SELECT`/`MODIFY` (and
+>   `EXECUTE` for functions, `READ VOLUME`/`WRITE VOLUME` for volumes) on every
+>   securable the tasks read or write.
+> - **SQL warehouses** — `CAN_USE` on any warehouse a SQL task targets.
+> - **External resources** — secret-scope `READ`, storage credentials/external
+>   locations, and any git/repo credentials the job relies on.
+>
+> Grant these to the target SP (ideally via a group the SP belongs to) before or
+> alongside the `run_as` change, or the job will fail at run time even though its
+> `run_as` and job ACL are correct. Validate with a manual **Run now** on a
+> representative job per workspace after the transfer.
+
 ### Workspace files: the active-job flag
 
 Workspace files/notebooks/repos have no owner — their ACL model is
@@ -139,8 +157,7 @@ databricks bundle run ownership_transfer -t dev --only transfer -- \
   --notebook-params execute=true
 ```
 
-See `notebooks/README.md` for the widget reference and `docs/` for the offboarding
-runbook.
+See `notebooks/README.md` for the widget reference.
 
 ## Safety
 
