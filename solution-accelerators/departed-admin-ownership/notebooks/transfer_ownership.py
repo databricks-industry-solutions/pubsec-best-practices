@@ -51,6 +51,12 @@ dbutils.widgets.dropdown(
 dbutils.widgets.dropdown(
     "scope_run_as", "false", ["true", "false"], "Scope: Job run_as reassignment"
 )
+dbutils.widgets.dropdown(
+    "grant_run_as_sp_perms",
+    "false",
+    ["true", "false"],
+    "Grant SP CAN_MANAGE on reassigned jobs (execute step)",
+)
 dbutils.widgets.text("wsfs_max_depth", "0", "WSFS max depth (0 = unlimited)")
 dbutils.widgets.text("wsfs_workers", "8", "WSFS concurrent listers")
 dbutils.widgets.text("workspace_ids", "", "Workspace IDs to sweep (comma-sep, blank=all)")
@@ -84,6 +90,7 @@ scope_uc = G("scope_uc") == "true"
 scope_ws = G("scope_ws") == "true"
 scope_wsfs = G("scope_wsfs") == "true"
 scope_run_as = G("scope_run_as") == "true"
+grant_run_as_sp_perms = G("grant_run_as_sp_perms") == "true"
 wsfs_max_depth = int(G("wsfs_max_depth") or 0)
 wsfs_workers = max(1, int(G("wsfs_workers") or 8))
 workspace_ids = {int(x) for x in G("workspace_ids").split(",") if x.strip()}
@@ -507,6 +514,28 @@ if phase == "inventory" and scope_ws:
 
 # COMMAND ----------
 
+# A job can only run_as an SP that can manage it. This helper reads whether a given
+# SP already holds a run-capable permission (CAN_MANAGE or IS_OWNER) on a job — used
+# both for the inventory preflight flag and to skip redundant grants at execute time.
+SP_RUN_CAPABLE = {"CAN_MANAGE", "IS_OWNER"}
+
+
+def sp_job_permission_levels(w, job_id, sp_app_id):
+    """Return the SP's permission levels (bare names) on a job, or [] if none."""
+    try:
+        pl = w.permissions.get(request_object_type="jobs", request_object_id=str(job_id))
+    except Exception as e:  # noqa: BLE001
+        log.debug("permissions.get(jobs/%s) failed: %s", job_id, e)
+        return []
+    for acl in pl.access_control_list or []:
+        if acl.service_principal_name == sp_app_id:
+            return [
+                str(p.permission_level).replace("PermissionLevel.", "")
+                for p in (acl.all_permissions or [])
+            ]
+    return []
+
+
 if phase == "inventory" and scope_run_as:
     if account_client is None:
         log.warning("scope_run_as requested but no account client — skipping.")
@@ -539,6 +568,10 @@ if phase == "inventory" and scope_run_as:
             if not matched:
                 continue
             name = job.settings.name if job.settings else str(bj.job_id)
+            # Preflight: does the target SP already have a run-capable permission?
+            sp_levels = sp_job_permission_levels(w, bj.job_id, target_sp)
+            sp_can_manage = bool(set(sp_levels) & SP_RUN_CAPABLE)
+            extra = "SP_HAS_ACCESS" if sp_can_manage else "SP_NEEDS_GRANT"
             emit(
                 domain="job_run_as",
                 workspace_id=ws_id,
@@ -551,6 +584,7 @@ if phase == "inventory" and scope_run_as:
                 matched_admin=matched,
                 proposed_new_owner=target_sp,  # per-workspace SP
                 transfer_method="jobs_update_run_as",
+                extra=extra,
             )
 
 # COMMAND ----------
@@ -747,6 +781,29 @@ if phase == "inventory":
         )
     )
 
+    # run_as preflight summary: how many reassigned jobs need an SP grant.
+    if scope_run_as:
+        needs = sum(
+            1
+            for r in rows
+            if r["transfer_method"] == "jobs_update_run_as" and r["extra"] == "SP_NEEDS_GRANT"
+        )
+        has = sum(
+            1
+            for r in rows
+            if r["transfer_method"] == "jobs_update_run_as" and r["extra"] == "SP_HAS_ACCESS"
+        )
+        print(
+            f"\nrun_as preflight: {has} job(s) already grantable by their target SP, "
+            f"{needs} need a CAN_MANAGE grant."
+        )
+        if needs:
+            print(
+                "  -> Set grant_run_as_sp_perms=true (with execute=true) to grant "
+                "CAN_MANAGE as part of the transfer, or grant it out-of-band first. "
+                "Without the grant, those jobs will FAIL at run time after reassignment."
+            )
+
 # COMMAND ----------
 
 if phase == "inventory":
@@ -861,22 +918,53 @@ def do_transfer(row, ws_client_cache):
     if method == "jobs_update_run_as":
         # Reassign run_as to the per-workspace SP (grp holds the SP application id).
         # jobs.update is a partial update: only run_as is replaced; tasks/schedule
-        # are left intact.
+        # are left intact. A job can only run_as an SP that can manage it, so
+        # optionally grant CAN_MANAGE first (gated by grant_run_as_sp_perms).
         job_id = int(row["object_id"])
+        needs_grant = row.get("extra") == "SP_NEEDS_GRANT"
+        will_grant = grant_run_as_sp_perms and needs_grant
         if not execute:
+            grant_note = (
+                " + grant CAN_MANAGE"
+                if will_grant
+                else (
+                    " [SP LACKS ACCESS — will fail at run time; set grant_run_as_sp_perms=true]"
+                    if needs_grant
+                    else ""
+                )
+            )
             return (
                 f"DRY-RUN set run_as -> SP {grp} on job {job_id} "
-                f"({row['full_name']}) [was {row['current_owner']}]"
+                f"({row['full_name']}) [was {row['current_owner']}]{grant_note}"
             )
         ws_id = int(row["workspace_id"])
         w = ws_client_cache.get(ws_id)
         if w is None:
             return f"SKIP (workspace {ws_id} not in scope)"
+        granted = ""
+        if will_grant:
+            # Additive grant — preserves other principals' ACLs on the job.
+            w.permissions.update(
+                request_object_type="jobs",
+                request_object_id=str(job_id),
+                access_control_list=[
+                    iam.AccessControlRequest(
+                        service_principal_name=grp,
+                        permission_level=iam.PermissionLevel.CAN_MANAGE,
+                    )
+                ],
+            )
+            granted = " (granted CAN_MANAGE)"
         w.jobs.update(
             job_id=job_id,
             new_settings=jobs.JobSettings(run_as=jobs.JobRunAs(service_principal_name=grp)),
         )
-        return f"OK set run_as -> SP {grp} on job {job_id}"
+        warn = (
+            " [WARN: SP lacked access and grant_run_as_sp_perms=false — job may fail]"
+            if (needs_grant and not will_grant)
+            else ""
+        )
+        return f"OK set run_as -> SP {grp} on job {job_id}{granted}{warn}"
 
     return f"SKIP (unknown method {method})"
 

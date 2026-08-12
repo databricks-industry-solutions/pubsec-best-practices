@@ -43,6 +43,9 @@ variables:
   run_as_sp_map:
     description: 'Per-workspace run_as SP as JSON: {"<workspace_id>": "<sp_application_id>"}'
     default: ""
+  grant_run_as_sp_perms:
+    description: Grant the target SP CAN_MANAGE on reassigned jobs during the execute step
+    default: "false"
   wsfs_max_depth:
     description: Max directory depth below a home root for the WSFS walk (0 = unlimited)
     default: "0"

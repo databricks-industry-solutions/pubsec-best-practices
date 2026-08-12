@@ -31,6 +31,7 @@ resources:
               scope_wsfs: ${var.scope_wsfs}
               scope_run_as: ${var.scope_run_as}
               run_as_sp_map: ${var.run_as_sp_map}
+              grant_run_as_sp_perms: ${var.grant_run_as_sp_perms}
               wsfs_max_depth: ${var.wsfs_max_depth}
               wsfs_workers: ${var.wsfs_workers}
               workspace_ids: ${var.workspace_ids}
@@ -60,6 +61,7 @@ resources:
               scope_wsfs: ${var.scope_wsfs}
               scope_run_as: ${var.scope_run_as}
               run_as_sp_map: ${var.run_as_sp_map}
+              grant_run_as_sp_perms: ${var.grant_run_as_sp_perms}
               wsfs_max_depth: ${var.wsfs_max_depth}
               wsfs_workers: ${var.wsfs_workers}
               workspace_ids: ${var.workspace_ids}

@@ -50,6 +50,17 @@ only `run_as` — tasks, schedule, and clusters are untouched. Workspaces withou
 entry in the map are skipped (logged), so you never accidentally repoint a job to the
 wrong workspace's SP.
 
+**Preflight + optional grant.** A job can only `run_as` a service principal that can
+manage it — otherwise it fails at run time. During inventory, each reassigned job is
+flagged in the `extra` column as `SP_HAS_ACCESS` or `SP_NEEDS_GRANT` (does the target
+SP already hold `CAN_MANAGE`/`IS_OWNER`?), and the run prints a preflight summary of
+how many need a grant. To fix them as part of the transfer, set
+`grant_run_as_sp_perms = true`: during the execute step it grants the SP
+`CAN_MANAGE` (additive — other principals' ACLs are preserved) on each job before
+reassigning `run_as`. Left `false` (the default), the transfer still reassigns
+`run_as` but **warns** on jobs where the SP lacks access, so you can grant it
+out-of-band instead.
+
 ### Workspace files: the active-job flag
 
 Workspace files/notebooks/repos have no owner — their ACL model is

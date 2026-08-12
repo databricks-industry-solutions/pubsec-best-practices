@@ -44,3 +44,38 @@ def test_per_workspace_lookup():
 def test_values_are_stripped():
     m = parse_sp_map('{"111": "  sp-one  "}')
     assert m["111"] == "sp-one"
+
+
+# --- Preflight SP-permission classification -------------------------------------
+
+SP_RUN_CAPABLE = {"CAN_MANAGE", "IS_OWNER"}
+
+
+def classify(sp_levels: list) -> str:
+    """Mirror of the notebook's preflight flag from an SP's job permission levels."""
+    return "SP_HAS_ACCESS" if set(sp_levels) & SP_RUN_CAPABLE else "SP_NEEDS_GRANT"
+
+
+@pytest.mark.parametrize(
+    "levels,expected",
+    [
+        (["CAN_MANAGE"], "SP_HAS_ACCESS"),
+        (["IS_OWNER"], "SP_HAS_ACCESS"),
+        (["CAN_VIEW", "CAN_MANAGE"], "SP_HAS_ACCESS"),
+        (["CAN_MANAGE_RUN"], "SP_NEEDS_GRANT"),  # run-only is not enough to run_as
+        (["CAN_VIEW"], "SP_NEEDS_GRANT"),
+        ([], "SP_NEEDS_GRANT"),  # SP not on the ACL at all
+    ],
+)
+def test_preflight_classification(levels, expected):
+    assert classify(levels) == expected
+
+
+def test_grant_decision_is_opt_in():
+    # will_grant only when both the opt-in flag is set AND the job needs a grant.
+    def will_grant(flag, extra):
+        return flag and extra == "SP_NEEDS_GRANT"
+
+    assert will_grant(True, "SP_NEEDS_GRANT") is True
+    assert will_grant(False, "SP_NEEDS_GRANT") is False  # opt-in off -> no grant
+    assert will_grant(True, "SP_HAS_ACCESS") is False  # already has access -> skip

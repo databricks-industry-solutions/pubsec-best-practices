@@ -30,6 +30,7 @@ dry-run-first design as the bundle job, driven by widgets.
 | `scope_uc` / `scope_ws` / `scope_wsfs` | Which domains to crawl |
 | `scope_run_as` | Reassign job `run_as` from departed admins to a per-workspace SP |
 | `run_as_sp_map` | JSON `{"<workspace_id>": "<sp_application_id>"}` — required when `scope_run_as=true` |
+| `grant_run_as_sp_perms` | Grant the target SP `CAN_MANAGE` on reassigned jobs during execute (default false; a job can only run_as an SP that can manage it) |
 | `wsfs_max_depth` | Max dir depth below a home root for the file walk (0 = unlimited) |
 | `wsfs_workers` | Concurrent directory listers for the file walk |
 | `workspace_ids` | Workspaces to sweep, comma-separated IDs (blank = all). Applies to objects, files, and run_as |
