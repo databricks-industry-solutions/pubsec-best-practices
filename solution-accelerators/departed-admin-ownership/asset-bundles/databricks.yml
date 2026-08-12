@@ -37,6 +37,12 @@ variables:
   scope_wsfs:
     description: Include workspace files/folders in departed-admin home trees (needs account SP)
     default: "false"
+  scope_run_as:
+    description: Reassign job run_as from departed admins to a per-workspace SP (needs account SP)
+    default: "false"
+  run_as_sp_map:
+    description: 'Per-workspace run_as SP as JSON: {"<workspace_id>": "<sp_application_id>"}'
+    default: ""
   wsfs_max_depth:
     description: Max directory depth below a home root for the WSFS walk (0 = unlimited)
     default: "0"

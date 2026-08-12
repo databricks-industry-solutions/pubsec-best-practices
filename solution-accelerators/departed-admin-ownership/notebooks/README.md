@@ -28,9 +28,11 @@ dry-run-first design as the bundle job, driven by widgets.
 | `phase` | `inventory` (read-only) or `transfer` |
 | `execute` | `false` = dry-run (default), `true` = apply (transfer phase only) |
 | `scope_uc` / `scope_ws` / `scope_wsfs` | Which domains to crawl |
+| `scope_run_as` | Reassign job `run_as` from departed admins to a per-workspace SP |
+| `run_as_sp_map` | JSON `{"<workspace_id>": "<sp_application_id>"}` — required when `scope_run_as=true` |
 | `wsfs_max_depth` | Max dir depth below a home root for the file walk (0 = unlimited) |
 | `wsfs_workers` | Concurrent directory listers for the file walk |
-| `workspace_ids` | Limit to specific workspace IDs (blank = all) |
+| `workspace_ids` | Workspaces to sweep, comma-separated IDs (blank = all). Applies to objects, files, and run_as |
 | `skip_catalogs` | Catalogs to skip |
 | `output_table` | Delta table for the inventory (`catalog.schema.table`) |
 

@@ -48,9 +48,17 @@ dbutils.widgets.dropdown("scope_ws", "true", ["true", "false"], "Scope: Workspac
 dbutils.widgets.dropdown(
     "scope_wsfs", "false", ["true", "false"], "Scope: Workspace files (home trees)"
 )
+dbutils.widgets.dropdown(
+    "scope_run_as", "false", ["true", "false"], "Scope: Job run_as reassignment"
+)
 dbutils.widgets.text("wsfs_max_depth", "0", "WSFS max depth (0 = unlimited)")
 dbutils.widgets.text("wsfs_workers", "8", "WSFS concurrent listers")
-dbutils.widgets.text("workspace_ids", "", "Limit to workspace IDs (comma-sep, blank=all)")
+dbutils.widgets.text("workspace_ids", "", "Workspace IDs to sweep (comma-sep, blank=all)")
+dbutils.widgets.text(
+    "run_as_sp_map",
+    "",
+    'Per-workspace run_as SP, JSON: {"<workspace_id>": "<sp_application_id>"}',
+)
 dbutils.widgets.text("skip_catalogs", "__databricks_internal", "Catalogs to skip (comma-sep)")
 
 dbutils.widgets.text("output_table", "", "Inventory Delta table (catalog.schema.table)")
@@ -75,11 +83,24 @@ execute = G("execute") == "true"
 scope_uc = G("scope_uc") == "true"
 scope_ws = G("scope_ws") == "true"
 scope_wsfs = G("scope_wsfs") == "true"
+scope_run_as = G("scope_run_as") == "true"
 wsfs_max_depth = int(G("wsfs_max_depth") or 0)
 wsfs_workers = max(1, int(G("wsfs_workers") or 8))
 workspace_ids = {int(x) for x in G("workspace_ids").split(",") if x.strip()}
 skip_catalogs = {c.strip().lower() for c in G("skip_catalogs").split(",") if c.strip()}
 output_table = G("output_table")
+
+# Per-workspace run_as SP map: {workspace_id -> service principal application id}.
+# Keys are normalized to str so JSON int/str keys both work.
+import json as _json  # noqa: E402  (also imported below for the rest of the notebook)
+
+run_as_sp_map = {}
+_raw_sp_map = G("run_as_sp_map")
+if _raw_sp_map:
+    try:
+        run_as_sp_map = {str(k): str(v).strip() for k, v in _json.loads(_raw_sp_map).items()}
+    except Exception as e:  # noqa: BLE001
+        raise ValueError(f"run_as_sp_map is not valid JSON: {e}")
 
 errors = []
 if not departed_admins:
@@ -88,12 +109,17 @@ if not target_group:
     errors.append("target_group is empty")
 if not output_table:
     errors.append("output_table is empty")
-if not (scope_uc or scope_ws or scope_wsfs):
+if not (scope_uc or scope_ws or scope_wsfs or scope_run_as):
     errors.append("all scopes disabled")
-if (scope_ws or scope_wsfs) and not secret_scope:
+if (scope_ws or scope_wsfs or scope_run_as) and not secret_scope:
     errors.append(
-        "workspace object/file scope needs an account SP (set secret_scope), "
-        "or disable scope_ws/scope_wsfs to crawl UC only"
+        "workspace object/file/run_as scope needs an account SP (set secret_scope), "
+        "or disable those scopes to crawl UC only"
+    )
+if scope_run_as and not run_as_sp_map:
+    errors.append(
+        "scope_run_as is on but run_as_sp_map is empty — provide a per-workspace SP "
+        'map, e.g. {"1234567890": "sp-app-id"}'
     )
 if errors:
     raise ValueError("Config errors:\n  - " + "\n  - ".join(errors))
@@ -113,8 +139,11 @@ print(
     "Scope          :",
     "UC " if scope_uc else "",
     "WS " if scope_ws else "",
-    "WSFS" if scope_wsfs else "",
+    "WSFS " if scope_wsfs else "",
+    "RUN_AS" if scope_run_as else "",
 )
+if scope_run_as:
+    print("run_as SP map  :", {k: v for k, v in run_as_sp_map.items()})
 print("Output table   :", output_table)
 
 # COMMAND ----------
@@ -366,7 +395,7 @@ WS_SPECS = [
         "jobs",
         lambda w: w.jobs.list(expand_tasks=False),
         "job_id",
-        lambda o: (o.settings.name if o.settings else str(o.job_id)),
+        lambda o: o.settings.name if o.settings else str(o.job_id),
     ),
     (
         "pipeline",
@@ -465,6 +494,64 @@ if phase == "inventory" and scope_ws:
                     )
         except Exception as e:  # noqa: BLE001
             log.debug("lakeview list failed on %s: %s", ws_id, e)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Job `run_as` reassignment
+# MAGIC `run_as` is who a job *executes as* — distinct from ownership. We match the
+# MAGIC **effective** identity (`run_as_user_name`), which also catches jobs with no
+# MAGIC explicit `run_as` set that still run as their departed-admin creator. The
+# MAGIC transfer sets `run_as` to the **per-workspace service principal** from
+# MAGIC `run_as_sp_map`. Requires `jobs.get()` per job for the full settings.
+
+# COMMAND ----------
+
+if phase == "inventory" and scope_run_as:
+    if account_client is None:
+        log.warning("scope_run_as requested but no account client — skipping.")
+    for ws_id, ws in iter_workspaces():
+        target_sp = run_as_sp_map.get(str(ws_id))
+        if not target_sp:
+            log.warning("workspace %s has no entry in run_as_sp_map — skipping run_as here", ws_id)
+            continue
+        try:
+            w = ws_client(ws)
+        except Exception as e:  # noqa: BLE001
+            log.warning("cannot connect to workspace %s: %s", ws_id, e)
+            continue
+        host = w.config.host
+        log.info("run_as crawl: %s (%s) -> SP %s", ws_id, host, target_sp)
+        try:
+            base_jobs = list(w.jobs.list(expand_tasks=False))
+        except Exception as e:  # noqa: BLE001
+            log.warning("jobs.list failed on %s: %s", ws_id, e)
+            continue
+        for bj in base_jobs:
+            try:
+                job = w.jobs.get(bj.job_id)  # full Job carries run_as + run_as_user_name
+            except Exception as e:  # noqa: BLE001
+                log.debug("jobs.get(%s) failed: %s", bj.job_id, e)
+                continue
+            # Effective identity: catches explicit run_as AND creator-default.
+            effective = job.run_as_user_name
+            matched = match_owner(effective)
+            if not matched:
+                continue
+            name = job.settings.name if job.settings else str(bj.job_id)
+            emit(
+                domain="job_run_as",
+                workspace_id=ws_id,
+                workspace_host=host,
+                object_type="job_run_as",
+                securable_type="jobs",
+                full_name=str(name),
+                object_id=str(bj.job_id),
+                current_owner=effective,  # current effective run_as identity
+                matched_admin=matched,
+                proposed_new_owner=target_sp,  # per-workspace SP
+                transfer_method="jobs_update_run_as",
+            )
 
 # COMMAND ----------
 
@@ -681,7 +768,7 @@ if phase == "inventory":
 
 # COMMAND ----------
 
-from databricks.sdk.service import iam
+from databricks.sdk.service import iam, jobs
 
 UC_ALTER = {
     "catalog": "ALTER CATALOG {name} OWNER TO `{grp}`",
@@ -703,9 +790,12 @@ UC_REST_PATH = {
 def do_transfer(row, ws_client_cache):
     grp = row["proposed_new_owner"] or target_group
     method = row["transfer_method"]
-    # Idempotency skip does not apply to WSFS (current_owner is the home-tree
-    # admin, not an ACL principal — the group grant is always additive).
-    if method != "wsfs_permissions" and (row["current_owner"] or "").lower() == grp.lower():
+    # Idempotency skip does not apply to WSFS (current_owner is the home-tree admin,
+    # not an ACL principal) or run_as (target is a per-workspace SP, not a group).
+    if (
+        method not in ("wsfs_permissions", "jobs_update_run_as")
+        and (row["current_owner"] or "").lower() == grp.lower()
+    ):
         return f"SKIP already owned by {grp}"
 
     if method == "sql_alter":
@@ -767,6 +857,26 @@ def do_transfer(row, ws_client_cache):
             request_object_type=api_type, request_object_id=str(oid), access_control_list=[acl]
         )
         return f"OK grant {grp} CAN_MANAGE on {api_type}/{oid}{warn}"
+
+    if method == "jobs_update_run_as":
+        # Reassign run_as to the per-workspace SP (grp holds the SP application id).
+        # jobs.update is a partial update: only run_as is replaced; tasks/schedule
+        # are left intact.
+        job_id = int(row["object_id"])
+        if not execute:
+            return (
+                f"DRY-RUN set run_as -> SP {grp} on job {job_id} "
+                f"({row['full_name']}) [was {row['current_owner']}]"
+            )
+        ws_id = int(row["workspace_id"])
+        w = ws_client_cache.get(ws_id)
+        if w is None:
+            return f"SKIP (workspace {ws_id} not in scope)"
+        w.jobs.update(
+            job_id=job_id,
+            new_settings=jobs.JobSettings(run_as=jobs.JobRunAs(service_principal_name=grp)),
+        )
+        return f"OK set run_as -> SP {grp} on job {job_id}"
 
     return f"SKIP (unknown method {method})"
 

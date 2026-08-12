@@ -30,6 +30,25 @@ Two phases, **dry-run first**:
 | Unity Catalog | external locations, storage credentials, connections, shares, recipients, registered models | REST `owner` | owner-only PATCH |
 | Workspace | jobs, pipelines, clusters, SQL warehouses, serving endpoints, experiments, MLflow models, Lakeview dashboards | `IS_OWNER` via permissions API | set group `IS_OWNER` |
 | Workspace files | notebooks, files, dirs, repos, dashboards in `/Users/<email>/` + `/Repos/<email>/` | home-tree location (WSFS has **no owner**) | grant group **CAN_MANAGE** (additive) |
+| Job `run_as` | jobs whose **effective** run identity is a departed admin | `run_as_user_name` (via `jobs.get`) | set `run_as` to a **per-workspace SP** |
+
+### Job `run_as` reassignment
+
+`run_as` is who a job *executes as* — a different axis from ownership. When it's a
+departed admin's identity, the job keeps running as a user who no longer exists.
+Enable `scope_run_as` to reassign it to a **service principal that varies by
+workspace**, supplied as a JSON map (`run_as_sp_map`):
+
+```json
+{"1234567890123456": "sp-app-id-ws-a", "6543210987654321": "sp-app-id-ws-b"}
+```
+
+Matching uses the **effective** identity (`run_as_user_name`), so it catches both
+jobs with an explicit `run_as` *and* jobs with none set that still run as their
+departed-admin creator. The transfer is a **partial** `jobs.update` that replaces
+only `run_as` — tasks, schedule, and clusters are untouched. Workspaces without an
+entry in the map are skipped (logged), so you never accidentally repoint a job to the
+wrong workspace's SP.
 
 ### Workspace files: the active-job flag
 
@@ -72,6 +91,25 @@ your account console (AWS `accounts.cloud.databricks.com`, Azure
 4. `phase = inventory` → **Run All**. Review the Delta table.
 5. `phase = transfer`, `execute = false` → dry-run; inspect the `result` column.
 6. `phase = transfer`, `execute = true` → apply.
+
+### Scoping which workspaces are swept (1..n)
+
+`workspace_ids` selects which workspaces the run touches — a comma-separated list
+given at runtime. Leave it **blank to sweep every workspace** in the account, or set
+e.g. `1234567890,9876543210` to limit the run to those workspaces. This applies to
+all workspace-level scopes (objects, files, and `run_as`).
+
+### Enabling `run_as` reassignment
+
+Set `scope_run_as = true` and provide `run_as_sp_map` — a JSON object mapping each
+in-scope workspace ID to the service principal that job `run_as` should point to:
+
+```json
+{"1234567890": "sp-app-id-ws-a", "9876543210": "sp-app-id-ws-b"}
+```
+
+Only workspaces present in the map are touched for `run_as`; others are logged and
+skipped. Pair it with `workspace_ids` to run a controlled subset at a time.
 
 ## Deploy as a job (Asset Bundle)
 

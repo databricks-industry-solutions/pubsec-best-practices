@@ -45,3 +45,22 @@ def test_cloud_neutral_host(nb_source):
 def test_wsfs_grants_can_manage_not_owner(nb_source):
     # WSFS has no owner — the transfer must grant CAN_MANAGE, not IS_OWNER.
     assert "CAN_MANAGE" in nb_source
+
+
+def test_run_as_matches_effective_identity(nb_source):
+    # run_as must match the EFFECTIVE identity (run_as_user_name), which also catches
+    # creator-default jobs — not just explicitly-set run_as.
+    assert "run_as_user_name" in nb_source
+
+
+def test_run_as_uses_partial_job_update(nb_source):
+    # Reassignment must set run_as via a partial jobs.update with JobRunAs, so tasks
+    # and schedule are left intact.
+    assert "jobs_update_run_as" in nb_source
+    assert "JobRunAs(service_principal_name=" in nb_source
+
+
+def test_run_as_requires_sp_map(nb_source):
+    # scope_run_as must fail fast if no per-workspace SP map is provided.
+    assert "run_as_sp_map" in nb_source
+    assert "scope_run_as and not run_as_sp_map" in nb_source
