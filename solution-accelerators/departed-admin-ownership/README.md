@@ -1,0 +1,107 @@
+# Departed Admin Ownership Transfer
+
+Find every **Unity Catalog** and **workspace** object owned by departed
+administrators across all workspaces in a Databricks account, and — as a separate,
+reviewed step — transfer ownership to an admin group. Built for offboarding: when an
+admin leaves, their owned catalogs, tables, jobs, clusters, models, and home-tree
+files need a new owner before their account is deactivated.
+
+## Why
+
+When a Databricks admin leaves, objects they own can become orphaned. Unity Catalog
+securables owned by a deactivated user block `ALTER`/`GRANT` operations; jobs and
+files they own may keep running but can't be managed. This accelerator inventories
+everything a departed admin owns and reassigns it to a durable admin **group**.
+
+## How it works
+
+Two phases, **dry-run first**:
+
+1. **`inventory`** — read-only. Crawls the account and every workspace, writing a
+   Delta table of every object owned by the departed admins. Mutates nothing.
+2. **`transfer`** — reads the reviewed table and reassigns ownership to the target
+   group. Defaults to **dry-run**; set `execute = true` to apply. Idempotent.
+
+## What gets covered
+
+| Domain | Objects | Owner source | Transfer |
+|--------|---------|--------------|----------|
+| Unity Catalog | catalogs, schemas, tables/views, volumes, functions | `information_schema.*_owner` | `ALTER … OWNER TO` |
+| Unity Catalog | external locations, storage credentials, connections, shares, recipients, registered models | REST `owner` | owner-only PATCH |
+| Workspace | jobs, pipelines, clusters, SQL warehouses, serving endpoints, experiments, MLflow models, Lakeview dashboards | `IS_OWNER` via permissions API | set group `IS_OWNER` |
+| Workspace files | notebooks, files, dirs, repos, dashboards in `/Users/<email>/` + `/Repos/<email>/` | home-tree location (WSFS has **no owner**) | grant group **CAN_MANAGE** (additive) |
+
+### Workspace files: the active-job flag
+
+Workspace files/notebooks/repos have no owner — their ACL model is
+CAN_READ/RUN/EDIT/MANAGE. So "owned by a departed admin" means the object lives in
+that admin's home tree, and "transfer" grants the target group **CAN_MANAGE**
+(access survives the user's deletion). Any path referenced by an **active, recurring
+job** (unpaused schedule / continuous / trigger) is flagged in the `extra` column
+(`ACTIVE_JOB_DEPENDENCY: <job names>`) and in the summary — re-home those *before*
+offboarding, or the job breaks. Build/dependency noise (`.venv`, `.git`,
+`node_modules`, …) is pruned. The walk is concurrent (`wsfs_workers`, default 8) and
+depth-limited (`wsfs_max_depth`, default 0 = unlimited) for large home trees.
+
+## Requirements
+
+- A Unity Catalog–enabled cluster (for the `system.information_schema` crawl).
+- An **account-admin service principal** whose `client_id`/`client_secret` live in a
+  **Databricks secret scope** (for the cross-workspace sweep). The SP must be
+  **provisioned into each workspace** and granted **metastore admin** — an account
+  admin that is not added to a workspace gets `401 Unauthorized` on workspace calls.
+- The **target group must be an account-level group** synced into the metastore; the
+  workspace-local `admins` group cannot own UC securables.
+
+Cloud-neutral: workspace hosts are resolved from the account API
+(`get_workspace_client`), so it works on AWS, Azure, and GCP. Set `account_host` to
+your account console (AWS `accounts.cloud.databricks.com`, Azure
+`accounts.azuredatabricks.net`, GCP `accounts.gcp.databricks.com`).
+
+## Quick start (notebook)
+
+1. Import `notebooks/transfer_ownership.py` into your workspace.
+2. Store the account SP creds in a secret scope:
+   ```bash
+   databricks secrets create-scope departed_admin_ownership
+   databricks secrets put-secret departed_admin_ownership account_sp_client_id
+   databricks secrets put-secret departed_admin_ownership account_sp_client_secret
+   ```
+3. Set the widgets: `secret_scope`, `account_id`, `departed_admins` (comma-separated
+   emails), `target_group`, `output_table` (e.g. `main.admin.ownership_inventory`).
+4. `phase = inventory` → **Run All**. Review the Delta table.
+5. `phase = transfer`, `execute = false` → dry-run; inspect the `result` column.
+6. `phase = transfer`, `execute = true` → apply.
+
+## Deploy as a job (Asset Bundle)
+
+The bundle in `asset-bundles/` deploys the notebook as a **two-task job**
+(`inventory` → `transfer`, dry-run). Running it end to end never mutates.
+
+```bash
+cd asset-bundles
+databricks bundle deploy -t dev
+
+# inventory + dry-run preview
+databricks bundle run ownership_transfer -t dev
+
+# review, then apply — re-run ONLY the transfer task with execute=true
+databricks bundle run ownership_transfer -t dev --only transfer -- \
+  --notebook-params execute=true
+```
+
+See `notebooks/README.md` for the widget reference and `docs/` for the offboarding
+runbook.
+
+## Safety
+
+- `inventory` performs **no writes**.
+- `transfer` is **dry-run by default**; `execute=true` is required to mutate.
+- Idempotent — objects already owned by the target group are skipped.
+- Each object is applied independently; one failure does not abort the run.
+- Ownership changes are hard to reverse in bulk — the `current_owner` column is your
+  record of the prior owner if you need to revert.
+
+## License
+
+See [LICENSE](LICENSE).

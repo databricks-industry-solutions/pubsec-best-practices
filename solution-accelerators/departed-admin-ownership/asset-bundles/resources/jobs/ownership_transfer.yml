@@ -1,0 +1,76 @@
+resources:
+  jobs:
+    ownership_transfer:
+      name: "[${bundle.target}] Departed Admin Ownership Transfer"
+      description: >-
+        Two-step, review-friendly workflow: (1) read-only inventory writes the Delta
+        table, then (2) a dry-run transfer previews every change. Neither step
+        mutates anything — flip execute=true on the transfer task only when ready.
+      # Run the whole workflow:  databricks bundle run ownership_transfer -t dev
+      #   inventory  -> writes ${var.output_table}, then
+      #   transfer   -> DRY-RUN preview (execute defaults to false)
+      # To apply, run just the transfer task with execute=true:
+      #   databricks bundle run ownership_transfer -t dev --only transfer \
+      #     -- --notebook-params execute=true
+      tasks:
+        - task_key: inventory
+          notebook_task:
+            notebook_path: ../notebooks/transfer_ownership.py
+            base_parameters:
+              secret_scope: ${var.secret_scope}
+              secret_key_client_id: ${var.secret_key_client_id}
+              secret_key_client_secret: ${var.secret_key_client_secret}
+              account_host: ${var.account_host}
+              account_id: ${var.account_id}
+              departed_admins: ${var.departed_admins}
+              target_group: ${var.target_group}
+              phase: inventory
+              execute: "false"
+              scope_uc: ${var.scope_uc}
+              scope_ws: ${var.scope_ws}
+              scope_wsfs: ${var.scope_wsfs}
+              wsfs_max_depth: ${var.wsfs_max_depth}
+              wsfs_workers: ${var.wsfs_workers}
+              workspace_ids: ${var.workspace_ids}
+              skip_catalogs: ${var.skip_catalogs}
+              output_table: ${var.output_table}
+          job_cluster_key: sweep_cluster
+
+        - task_key: transfer
+          depends_on:
+            - task_key: inventory
+          notebook_task:
+            notebook_path: ../notebooks/transfer_ownership.py
+            base_parameters:
+              secret_scope: ${var.secret_scope}
+              secret_key_client_id: ${var.secret_key_client_id}
+              secret_key_client_secret: ${var.secret_key_client_secret}
+              account_host: ${var.account_host}
+              account_id: ${var.account_id}
+              departed_admins: ${var.departed_admins}
+              target_group: ${var.target_group}
+              phase: transfer
+              # DRY-RUN by default. Override per-run to apply:
+              #   ... --only transfer -- --notebook-params execute=true
+              execute: "false"
+              scope_uc: ${var.scope_uc}
+              scope_ws: ${var.scope_ws}
+              scope_wsfs: ${var.scope_wsfs}
+              wsfs_max_depth: ${var.wsfs_max_depth}
+              wsfs_workers: ${var.wsfs_workers}
+              workspace_ids: ${var.workspace_ids}
+              skip_catalogs: ${var.skip_catalogs}
+              output_table: ${var.output_table}
+          job_cluster_key: sweep_cluster
+      job_clusters:
+        - job_cluster_key: sweep_cluster
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            num_workers: 0
+            data_security_mode: SINGLE_USER
+            spark_conf:
+              spark.master: "local[*]"
+              spark.databricks.cluster.profile: singleNode
+            custom_tags:
+              ResourceClass: SingleNode

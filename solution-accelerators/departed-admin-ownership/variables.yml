@@ -1,0 +1,19 @@
+# Environment-specific variables for departed-admin-ownership
+# These can be overridden per environment in asset-bundles/databricks.yml
+# (or passed at deploy time with --var).
+
+# Required:
+# account_id: "0d26daa6-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+# departed_admins: "former.admin1@example.com,former.admin2@example.com"
+# target_group: "data-platform-admins"
+# output_table: "main.admin.ownership_inventory"
+# secret_scope: "departed_admin_ownership"
+
+# Optional (defaults shown):
+# account_host: https://accounts.cloud.databricks.com
+# scope_uc: "true"
+# scope_ws: "true"
+# scope_wsfs: "false"
+# wsfs_max_depth: "0"
+# wsfs_workers: "8"
+# skip_catalogs: "__databricks_internal,system"

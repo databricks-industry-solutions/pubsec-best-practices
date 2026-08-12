@@ -1,0 +1,35 @@
+[project]
+name = "departed-admin-ownership"
+version = "0.1.0"
+description = "Find and transfer ownership of Databricks UC and workspace objects owned by departed admins"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+keywords = ["databricks", "unity-catalog", "ownership", "offboarding", "governance", "admin"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "databricks-sdk>=0.44.0",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/databricks-industry-solutions/pubsec-best-practices"
+Repository = "https://github.com/databricks-industry-solutions/pubsec-best-practices"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"

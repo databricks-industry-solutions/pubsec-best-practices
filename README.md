@@ -15,6 +15,7 @@ A mono-repo for public sector solution accelerators and demos built on Databrick
 | [xsd-to-synthetic](solution-accelerators/xsd-to-synthetic/) | Generate synthetic data from XSD schemas using PySpark |
 | [r-airgap-install](solution-accelerators/r-airgap-install/) | Install R geospatial packages (`zipcodeR`, `sf`, `terra`, etc.) on an air-gapped Databricks cluster via UC Volume |
 | [executor-log-viewer](solution-accelerators/executor-log-viewer/) | Databricks App to read Spark executor/driver logs from terminated job clusters (delivered by Cluster Log Delivery to a UC Volume), on-behalf-of the viewing user; air-gap ready |
+| [departed-admin-ownership](solution-accelerators/departed-admin-ownership/) | Inventory and transfer ownership of Unity Catalog and workspace objects (tables, jobs, clusters, files) owned by departed admins to an admin group; dry-run first, cloud-neutral |
 
 ### Demos
 
