@@ -76,6 +76,7 @@ def _cfg(**over):
         scope_wsfs=False,
         scope_run_as=True,
         workspace_ids=[],
+        workspace_workers=1,
         skip_catalogs=[],
         sql_warehouse_ids={},
         wsfs_max_depth=0,
@@ -131,3 +132,46 @@ def test_uc_sql_dry_run_backticks_name():
     }
     msg = core.transfer_row(_cfg(), row, None, "wh1", dry_run=True)
     assert "ALTER TABLE `cat`.`sch`.`tbl` OWNER TO `admins`" in msg
+
+
+def test_uc_sql_escapes_embedded_backtick():
+    # An identifier containing a backtick must have it doubled so it can't break the
+    # quoting (SQL-injection-resistant ALTER).
+    row = {
+        "proposed_new_owner": "adm`ins",
+        "transfer_method": "sql_alter",
+        "current_owner": "a@x.com",
+        "object_type": "table",
+        "full_name": "cat.sch.we`ird",
+        "securable_type": "TABLE",
+    }
+    msg = core.transfer_row(_cfg(), row, None, "wh1", dry_run=True)
+    assert "`we``ird`" in msg
+    assert "`adm``ins`" in msg
+
+
+def test_uc_rest_url_encodes_name():
+    # A securable name with a space / slash must be URL-encoded in the PATCH path.
+    row = {
+        "proposed_new_owner": "admins",
+        "transfer_method": "uc_rest",
+        "current_owner": "a@x.com",
+        "object_type": "external_location",
+        "full_name": "my loc/prod",
+        "securable_type": "EXTERNAL_LOCATION",
+    }
+    msg = core.transfer_row(_cfg(), row, None, "", dry_run=True)
+    assert "my%20loc%2Fprod" in msg
+
+
+def test_dedupe_uc_drops_repeat_metastore_rows_keeps_per_workspace():
+    from main import _dedupe_uc
+
+    uc = {"domain": "unity_catalog", "object_type": "table", "full_name": "cat.sch.tbl"}
+    ws = {"domain": "workspace", "object_type": "job", "full_name": "etl"}
+    seen: set = set()
+    first = _dedupe_uc([dict(uc), dict(ws)], seen)
+    second = _dedupe_uc([dict(uc), dict(ws)], seen)  # same UC row from another workspace
+    assert len(first) == 2  # UC + workspace both kept the first time
+    assert len(second) == 1  # UC row deduped, per-workspace job row kept
+    assert second[0]["domain"] == "workspace"

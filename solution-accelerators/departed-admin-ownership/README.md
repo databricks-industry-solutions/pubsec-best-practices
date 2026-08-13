@@ -195,6 +195,22 @@ job `run_as` (per-workspace SP + preflight + optional grant). `workspace_ids` se
 the **1..n** workspaces to sweep (empty = all). `--only` and `--limit` scope the
 transfer. See `cli/config.example.yaml` for all options.
 
+Set `workspace_workers` > 1 to crawl and transfer workspaces **in parallel** — one
+thread per workspace, each with its own client and warehouse, so a large fleet sweeps
+much faster. Per-workspace clients are minted serially up front (the account token
+exchange isn't safe to call concurrently) and then handed to the worker threads. Rows
+are assembled in workspace order, so the CSV is deterministic and diffable across
+runs; metastore-global UC securables (catalogs/schemas/tables and account-level
+securables) are de-duplicated so they appear — and transfer — once, not once per
+workspace. Per-workspace failures are isolated. Within a workspace, the WSFS walk
+keeps using `wsfs_workers`.
+
+Total in-flight API calls scale as `workspace_workers` × `wsfs_workers`, so raising
+both on a large account drives real load against the account console and per-workspace
+APIs. The Databricks SDK retries throttling (429/503) with backoff, but if you see
+truncated inventories, dial the workers back. Start conservative (e.g. 4 × 8) and
+raise as the account tolerates.
+
 ## Safety
 
 - `inventory` performs **no writes**.

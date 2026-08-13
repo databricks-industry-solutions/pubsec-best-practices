@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import urllib.parse
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -32,6 +33,7 @@ class Principals:
     emails: set[str]
     target_group: str
     target_group_present: bool
+    scim_resolved: set[str]  # configured admins actually found in account SCIM
 
     def matches(self, owner: str | None) -> str | None:
         if not owner:
@@ -42,10 +44,12 @@ class Principals:
 def resolve_principals(cfg: Config, ac: AccountClient) -> Principals:
     by_key = {e: e for e in cfg.departed_admins}
     wanted = set(cfg.departed_admins)
+    resolved: set[str] = set()
     log.info("Resolving %d departed admin(s) via account SCIM…", len(wanted))
     for u in ac.users.list(attributes="id,userName,displayName,emails"):
         uname = (u.user_name or "").lower()
         if uname in wanted:
+            resolved.add(uname)
             emails = [e.value.lower() for e in (u.emails or []) if e.value]
             for k in {uname, str(u.id).lower(), (u.display_name or "").lower(), *emails}:
                 if k:
@@ -54,7 +58,7 @@ def resolve_principals(cfg: Config, ac: AccountClient) -> Principals:
         (g.display_name or "").lower() == cfg.target_group.lower()
         for g in ac.groups.list(attributes="id,displayName")
     )
-    return Principals(by_key, wanted, cfg.target_group, found)
+    return Principals(by_key, wanted, cfg.target_group, found, resolved)
 
 
 # =============================================================================
@@ -577,8 +581,11 @@ def transfer_row(
             return f"SKIP (no SQL template for {row['object_type']})"
         if not warehouse_id:
             return "SKIP (sql_alter needs a warehouse; none configured for this workspace)"
-        qualified = ".".join(f"`{p}`" for p in row["full_name"].split("."))
-        sql = tmpl.format(name=qualified, grp=grp)
+        # Backtick-quote each identifier part, doubling any embedded backtick so a
+        # name like `weird`col` can't break out of the quoting. grp is likewise quoted
+        # in the ALTER template.
+        qualified = ".".join("`{}`".format(p.replace("`", "``")) for p in row["full_name"].split("."))
+        sql = tmpl.format(name=qualified, grp=grp.replace("`", "``"))
         if dry_run:
             return f"DRY-RUN {sql}"
         list(_exec_sql(w, warehouse_id, sql))
@@ -588,7 +595,10 @@ def transfer_row(
         seg = UC_REST_PATH.get(row["object_type"])
         if seg is None:
             return f"SKIP (no REST path for {row['object_type']})"
-        path = f"/api/2.1/unity-catalog/{seg}/{row['full_name']}"
+        # URL-encode the name so spaces / slashes / reserved chars don't corrupt the
+        # path (safe="" also encodes '/', keeping a slash in the name in-segment).
+        name = urllib.parse.quote(row["full_name"], safe="")
+        path = f"/api/2.1/unity-catalog/{seg}/{name}"
         if dry_run:
             return f"DRY-RUN PATCH {path} owner -> {grp}"
         w.api_client.do("PATCH", path, body={"owner": grp})

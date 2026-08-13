@@ -45,6 +45,7 @@ class Config:
 
     # --- selection ---
     workspace_ids: list[int]  # 1..n workspaces; empty = all in the account
+    workspace_workers: int  # how many workspaces to crawl/transfer in parallel
     skip_catalogs: list[str]
 
     # --- UC crawl ---
@@ -87,6 +88,7 @@ class Config:
             scope_wsfs=bool(scope.get("workspace_files", False)),
             scope_run_as=bool(scope.get("job_run_as", False)),
             workspace_ids=[int(w) for w in d.get("workspace_ids", []) or []],
+            workspace_workers=max(1, int(d.get("workspace_workers", 1) or 1)),
             skip_catalogs=[c.lower() for c in d.get("skip_catalogs", []) or []],
             sql_warehouse_ids=_int_keyed(d.get("sql_warehouse_ids")),
             wsfs_max_depth=int(d.get("wsfs_max_depth", 0) or 0),

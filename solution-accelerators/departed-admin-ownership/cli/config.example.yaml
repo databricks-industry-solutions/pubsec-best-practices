@@ -37,6 +37,11 @@ workspace_ids: []
 #   - 1234567890123456
 #   - 6543210987654321
 
+# Crawl/transfer this many workspaces in parallel, one thread each (1 = sequential).
+# Each workspace uses its own client and warehouse, so they don't contend; raise this
+# to sweep a large fleet faster. Within a workspace, WSFS still uses wsfs_workers.
+workspace_workers: 1
+
 skip_catalogs:
   - __databricks_internal
   - system
