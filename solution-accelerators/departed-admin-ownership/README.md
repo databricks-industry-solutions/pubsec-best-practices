@@ -159,6 +159,42 @@ databricks bundle run ownership_transfer -t dev --only transfer -- \
 
 See `notebooks/README.md` for the widget reference.
 
+## Run from the CLI (network-restricted workspaces)
+
+The notebook runs on workspace compute and calls the account console directly
+(SCIM, `workspaces.list`, per-workspace token exchange). **If workspace compute is
+network-restricted from the account console, use the CLI in `cli/` instead** — run
+it from a host that *can* reach the account console (a laptop, jump host, or CI
+runner), while it still reaches each workspace's API.
+
+Auth bootstrap (no account-console traffic from workspace compute):
+
+1. The CLI authenticates to a **bootstrap workspace** it can reach, via a normal
+   Databricks CLI profile.
+2. It reads the account SP `client_id`/`client_secret` from a **secret scope** in
+   that workspace.
+3. It builds the `AccountClient` **from the CLI host** and uses
+   `get_workspace_client()` for the sweep — so all account-console traffic and token
+   exchange happen from the CLI host, not from workspace compute.
+
+```bash
+cd cli
+pip install databricks-sdk PyYAML          # or: uv run --with databricks-sdk,PyYAML python main.py ...
+cp config.example.yaml config.yaml         # fill in bootstrap, admins, target group, scopes
+
+python main.py -c config.yaml whoami                 # sanity: account, principals, workspaces
+python main.py -c config.yaml inventory              # read-only crawl -> out/inventory_<ts>.csv
+# review the CSV, then:
+python main.py -c config.yaml transfer --from out/inventory_<ts>.csv            # dry-run
+python main.py -c config.yaml transfer --from out/inventory_<ts>.csv --execute  # apply
+```
+
+Feature parity with the notebook: UC (SQL warehouse per workspace via
+`sql_warehouse_ids`, with REST fallback), workspace objects, workspace files, and
+job `run_as` (per-workspace SP + preflight + optional grant). `workspace_ids` selects
+the **1..n** workspaces to sweep (empty = all). `--only` and `--limit` scope the
+transfer. See `cli/config.example.yaml` for all options.
+
 ## Safety
 
 - `inventory` performs **no writes**.

@@ -1,0 +1,64 @@
+# departed-admin-ownership CLI configuration.
+# Copy to config.yaml and fill in for the CUSTOMER's account.
+#
+# Network model: run this CLI from a host that CAN reach the account console
+# (workspace compute is assumed to be network-restricted from it). The CLI
+# authenticates to a reachable "bootstrap" workspace, reads the account SP creds from
+# a secret scope there, then builds the account client from the CLI host.
+
+bootstrap:
+  # A Databricks CLI profile (in ~/.databrickscfg) for a workspace the CLI host can
+  # reach, whose secret scope holds the account SP creds.
+  profile: my-bootstrap-ws
+  secret_scope: departed_admin_ownership
+  secret_key_client_id: account_sp_client_id
+  secret_key_client_secret: account_sp_client_secret
+  # Account console the CLI host can reach (AWS shown; Azure:
+  # accounts.azuredatabricks.net, GCP: accounts.gcp.databricks.com).
+  account_host: https://accounts.cloud.databricks.com
+  account_id: "00000000-0000-0000-0000-000000000000"
+
+# --- who / what ---
+departed_admins:
+  - former.admin1@customer.com
+  - former.admin2@customer.com
+target_group: data-platform-admins       # account-level group (not workspace 'admins')
+
+# --- scope ---
+scope:
+  unity_catalog: true
+  workspace_objects: true
+  workspace_files: false                  # recursive home-tree walk; off by default
+  job_run_as: false                       # needs run_as_sp_map below
+
+# --- selection: run 1..n workspaces (empty = all in the account) ---
+workspace_ids: []
+# workspace_ids:
+#   - 1234567890123456
+#   - 6543210987654321
+
+skip_catalogs:
+  - __databricks_internal
+  - system
+
+# --- UC crawl: SQL warehouse per workspace (fast path). Omit a workspace to fall
+#     back to the UC REST crawl for its account-level securables only. ---
+sql_warehouse_ids: {}
+# sql_warehouse_ids:
+#   1234567890123456: "abc123warehouseid"
+
+# --- workspace-files (WSFS) tuning (only used when scope.workspace_files: true) ---
+wsfs_max_depth: 0                         # 0 = unlimited
+wsfs_workers: 8
+
+# --- job run_as: per-workspace SP application id (required when scope.job_run_as) ---
+run_as_sp_map: {}
+# run_as_sp_map:
+#   1234567890123456: "sp-app-id-ws-a"
+#   6543210987654321: "sp-app-id-ws-b"
+# Grant the target SP CAN_MANAGE on reassigned jobs during --execute (default false).
+# NOTE: this covers only the job ACL — the SP also needs the compute / UC data / SQL
+# warehouse / secret access its tasks use (see README run_as caveat).
+grant_run_as_sp_perms: false
+
+output_dir: ./out
