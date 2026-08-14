@@ -140,24 +140,70 @@ in-scope workspace ID to the service principal that job `run_as` should point to
 Only workspaces present in the map are touched for `run_as`; others are logged and
 skipped. Pair it with `workspace_ids` to run a controlled subset at a time.
 
+## Choosing a run mode
+
+There are three ways to run this, differing only in **how they reach across
+workspaces**. The crawl/transfer logic is the same everywhere.
+
+| Mode | Where it runs | Reaches the account console? | Use when |
+|------|---------------|------------------------------|----------|
+| **Account notebook** (`transfer_ownership.py`) | Databricks compute in one workspace | **Yes** — sweeps all workspaces via an account SP | Workspace compute can reach the account console |
+| **Workspace-local notebook** (`transfer_ownership_local.py`) | Databricks compute, **deployed into each workspace** | **No** — only what that workspace can see | Workspace compute is network-restricted from the account console |
+| **CLI** (`cli/`) | A host outside Databricks (laptop / jump host / CI) | **Yes** — from the CLI host, not from workspace compute | You have a host that can reach the account console but workspace compute cannot |
+
+The two notebooks and the CLI all produce the same inventory schema and use the same
+transfer methods; pick by what your network allows.
+
 ## Deploy as a job (Asset Bundle)
 
-The bundle in `asset-bundles/` deploys the notebook as a **two-task job**
-(`inventory` → `transfer`, dry-run). Running it end to end never mutates.
+The bundle in `asset-bundles/` ships **both** notebooks as two-task jobs
+(`inventory` → `transfer`, dry-run). Running either end to end never mutates.
+
+- `ownership_transfer` — the **account** notebook (cross-workspace sweep).
+- `ownership_transfer_local` — the **workspace-local** notebook; deploy it into each
+  workspace and run it there.
 
 ```bash
 cd asset-bundles
 databricks bundle deploy -t dev
 
-# inventory + dry-run preview
-databricks bundle run ownership_transfer -t dev
-
-# review, then apply — re-run ONLY the transfer task with execute=true
+# --- account-based (one workspace sweeps the account) ---
+databricks bundle run ownership_transfer -t dev            # inventory + dry-run preview
 databricks bundle run ownership_transfer -t dev --only transfer -- \
-  --notebook-params execute=true
+  --notebook-params execute=true                           # review, then apply
+
+# --- workspace-local (deploy + run in EACH workspace) ---
+databricks bundle run ownership_transfer_local -t dev      # inventory + dry-run preview
+databricks bundle run ownership_transfer_local -t dev --only transfer -- \
+  --notebook-params execute=true                           # review, then apply
 ```
 
-See `notebooks/README.md` for the widget reference.
+**For a full step-by-step walkthrough** — provisioning the SP, secret scope, per-target
+variables, per-workspace deploy loop, and troubleshooting — see
+[`asset-bundles/DEPLOYMENT.md`](asset-bundles/DEPLOYMENT.md). See `notebooks/README.md`
+for the widget reference.
+
+### Workspace-local mode (network-restricted from the account console)
+
+If workspace compute **cannot reach the account console**, the account notebook's
+cross-workspace sweep won't work. `transfer_ownership_local.py` runs entirely against
+the **ambient `WorkspaceClient`** — no `AccountClient`, no account SP, no
+account-console traffic — so it inventories and transfers only what *this* workspace
+can see. Deploy the bundle into **each** workspace (set `databricks_host` /
+`output_table` per workspace) and run `ownership_transfer_local` there.
+
+- **Run identity matters.** The crawl only sees objects the run identity can read, so
+  the job's `run_as` is pinned to a per-workspace **admin service principal**
+  (`run_identity_sp`). Make it a workspace admin (and metastore admin for full UC
+  coverage).
+- **Restricted catalogs are handled naturally.** `system.information_schema` only
+  exposes the catalogs bound to this workspace, so catalogs restricted to other
+  workspaces simply don't appear — no special handling. Running the job in each
+  workspace covers each workspace's catalogs.
+- **`run_as` reassignment** targets a single `run_as_sp` (this workspace's SP), not the
+  JSON per-workspace map the account notebook uses.
+- **Per-workspace output.** Each job writes its inventory to a workspace-local
+  `output_table`; review and transfer happen within each workspace.
 
 ## Run from the CLI (network-restricted workspaces)
 
@@ -219,6 +265,15 @@ raise as the account tolerates.
 - Each object is applied independently; one failure does not abort the run.
 - Ownership changes are hard to reverse in bulk — the `current_owner` column is your
   record of the prior owner if you need to revert.
+
+## Known limitations
+
+- **UC identifiers containing a literal dot.** A catalog/schema/table/volume/function
+  whose backtick-quoted name contains a `.` (e.g. a table named `` `weird.name` ``) is
+  stored as a dot-joined `full_name` and re-split on `.` at transfer time, so the
+  generated `ALTER … OWNER` targets the wrong (nonexistent) object and that row fails
+  rather than reassigning. Such rows show an error in the `result` column; reassign
+  those objects manually. All other identifiers are backtick-escaped and safe.
 
 ## License
 

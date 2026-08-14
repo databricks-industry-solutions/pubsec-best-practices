@@ -41,8 +41,18 @@ variables:
     description: Reassign job run_as from departed admins to a per-workspace SP (needs account SP)
     default: "false"
   run_as_sp_map:
-    description: 'Per-workspace run_as SP as JSON: {"<workspace_id>": "<sp_application_id>"}'
+    description: 'Per-workspace run_as SP as JSON: {"<workspace_id>": "<sp_application_id>"} (account-based notebook)'
     default: ""
+  run_as_sp:
+    description: run_as target SP application id for THIS workspace (workspace-local notebook)
+    default: ""
+  run_identity_sp:
+    # No default: the local job pins run_as to this SP, and an empty value renders an
+    # invalid run_as that the Jobs API rejects with a confusing error. Making it
+    # required fails fast with a clear "no value assigned" message instead. Only the
+    # workspace-local job (ownership_transfer_local) uses it; if you deploy only the
+    # account-based job you can pass any placeholder, or split the bundle.
+    description: Workspace-admin SP the local job runs AS, so the crawl sees every owner's objects (required)
   grant_run_as_sp_perms:
     description: Grant the target SP CAN_MANAGE on reassigned jobs during the execute step
     default: "false"

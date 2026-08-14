@@ -1,13 +1,20 @@
-# Notebook: transfer_ownership
+# Notebooks: transfer_ownership
 
 Runs the departed-admin ownership sweep inside Databricks. Same two-phase,
-dry-run-first design as the bundle job, driven by widgets.
+dry-run-first design as the bundle job, driven by widgets. Two variants:
+
+- **`transfer_ownership.py`** — account-based. One workspace sweeps **all** workspaces
+  via an account SP (needs account-console reachability). Widgets below.
+- **`transfer_ownership_local.py`** — **workspace-local**. Uses only the ambient
+  `WorkspaceClient`, so it sees only what *this* workspace can see. Deploy into each
+  workspace. Use when workspace compute is network-restricted from the account console.
+  See [its widget differences](#workspace-local-notebook-transfer_ownership_localpy).
 
 ## Import
 
-- **Repos / Git folder:** open `notebooks/transfer_ownership.py` — it's a Databricks
+- **Repos / Git folder:** open the notebook — each is a Databricks
   `# Databricks notebook source` file and imports as a notebook.
-- **Manual:** Workspace ▸ Import ▸ File ▸ `transfer_ownership.py`.
+- **Manual:** Workspace ▸ Import ▸ File ▸ the `.py` file.
 
 ## Cluster
 
@@ -43,6 +50,25 @@ dry-run-first design as the bundle job, driven by widgets.
 |------|-------|------|
 | **Account-wide** (recommended) | Account-admin SP in a secret scope | UC (metastore-wide) **plus** workspace objects/files in every workspace |
 | **UC-only / single workspace** | Nothing extra (notebook identity) | All UC objects; set `scope_ws=false` and `scope_wsfs=false` |
+
+## Workspace-local notebook (`transfer_ownership_local.py`)
+
+Same phases and workflow, but it runs against **only the current workspace** using the
+ambient `WorkspaceClient` — no account SP, no account-console traffic. Widget
+differences from the account-based notebook:
+
+| Change | Detail |
+|--------|--------|
+| **Removed** | `secret_scope`, `secret_key_client_id`, `secret_key_client_secret`, `account_host`, `account_id` — no account client, so none needed |
+| **Removed** | `workspace_ids` — it always acts on the one workspace it runs in |
+| **Changed** | `run_as_sp_map` (JSON map) → **`run_as_sp`** (a single SP application id for this workspace) |
+| `target_group` | Must exist **in this workspace** (account group synced in, or a workspace-local group) |
+
+**Run identity:** the crawl only sees objects the run identity can read, so run the
+notebook (or its bundle job) as a **workspace admin** — the bundle pins `run_as` to a
+per-workspace admin SP (`run_identity_sp`) for this reason. **Restricted catalogs** are
+handled automatically: `information_schema` only exposes catalogs bound to this
+workspace. Deploy and run the job in **each** workspace to cover them all.
 
 ## Workflow
 

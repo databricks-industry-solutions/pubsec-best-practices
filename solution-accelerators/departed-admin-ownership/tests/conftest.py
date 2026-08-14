@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 NOTEBOOK = Path(__file__).parent.parent / "notebooks" / "transfer_ownership.py"
+NOTEBOOK_LOCAL = Path(__file__).parent.parent / "notebooks" / "transfer_ownership_local.py"
 
 # Pure helpers with no dependency on notebook globals (dbutils/spark/log).
 _PURE_FUNCS = {"is_noise_path", "norm_path", "path_is_active", "task_paths"}
@@ -21,6 +22,11 @@ _PURE_ASSIGNS = {"WSFS_NOISE_SEGMENTS", "WSFS_PERM_TYPE"}
 @pytest.fixture(scope="session")
 def nb_source() -> str:
     return NOTEBOOK.read_text()
+
+
+@pytest.fixture(scope="session")
+def nb_local_source() -> str:
+    return NOTEBOOK_LOCAL.read_text()
 
 
 @pytest.fixture(scope="session")

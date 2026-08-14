@@ -82,3 +82,10 @@ def test_run_as_grant_is_opt_in(nb_source):
 def test_run_as_grant_uses_service_principal_acl(nb_source):
     # The grant must target the SP via service_principal_name with CAN_MANAGE.
     assert "service_principal_name=grp" in nb_source
+
+
+def test_transfer_guards_empty_inventory(nb_source):
+    # spark.createDataFrame([]) can't infer a schema and raises — the transfer phase
+    # must guard the empty case so an empty inventory reports cleanly, not crashes.
+    assert "if results:" in nb_source
+    assert "nothing to transfer" in nb_source
