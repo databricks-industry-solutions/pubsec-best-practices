@@ -151,7 +151,15 @@ the run output and the `result` column of the inventory table.
 ### Step 5 — Review, then apply
 
 ```sql
-SELECT * FROM main.admin.ownership_inventory ORDER BY domain, object_type;
+-- Inventory appends one row-set per run (tagged run_id / run_timestamp), so scope to
+-- the latest run for review. The transfer task applies only this latest run.
+SELECT * FROM main.admin.ownership_inventory
+WHERE run_id = (SELECT max(run_id) FROM main.admin.ownership_inventory)
+ORDER BY domain, object_type;
+
+-- See the run history:
+SELECT run_id, run_timestamp, count(*) n
+FROM main.admin.ownership_inventory GROUP BY 1, 2 ORDER BY run_timestamp DESC;
 ```
 
 When satisfied, re-run **only** the transfer task with `execute=true`:

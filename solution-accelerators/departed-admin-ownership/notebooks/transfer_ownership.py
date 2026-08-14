@@ -111,6 +111,17 @@ if _raw_sp_map:
     except Exception as e:  # noqa: BLE001
         raise ValueError(f"run_as_sp_map is not valid JSON: {e}")
 
+# Stamp every row of this run with a shared identity so the inventory table can retain
+# the history of many runs (append, not overwrite). RUN_ID is sortable + unique, so the
+# transfer phase can pick the latest run with max(run_id); RUN_TIMESTAMP is the readable
+# UTC instant. Both are derived from the same moment.
+import uuid  # noqa: E402
+from datetime import datetime, timezone  # noqa: E402
+
+_run_dt = datetime.now(timezone.utc)
+RUN_TIMESTAMP = _run_dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{_run_dt.microsecond // 1000:03d}Z"
+RUN_ID = _run_dt.strftime("%Y%m%dT%H%M%SZ-") + uuid.uuid4().hex[:8]
+
 errors = []
 if not departed_admins:
     errors.append("departed_admins is empty")
@@ -154,6 +165,7 @@ print(
 if scope_run_as:
     print("run_as SP map  :", {k: v for k, v in run_as_sp_map.items()})
 print("Output table   :", output_table)
+print("Run id         :", RUN_ID, "(", RUN_TIMESTAMP, ")")
 
 # COMMAND ----------
 
@@ -255,6 +267,8 @@ def match_owner(owner):
 # COMMAND ----------
 
 INVENTORY_COLUMNS = [
+    "run_id",
+    "run_timestamp",
     "domain",
     "workspace_id",
     "workspace_host",
@@ -273,6 +287,9 @@ rows = []
 
 
 def emit(**kw):
+    # Stamp this run's identity on every row (append-mode table retains run history).
+    kw.setdefault("run_id", RUN_ID)
+    kw.setdefault("run_timestamp", RUN_TIMESTAMP)
     kw.setdefault("workspace_id", None)
     kw.setdefault("workspace_host", "")
     kw.setdefault("object_id", "")
@@ -774,12 +791,20 @@ if phase == "inventory":
         empty_schema = ", ".join(f"{c} string" for c in INVENTORY_COLUMNS)
         inv_df = spark.createDataFrame([], empty_schema)
     inv_df = inv_df.select(*INVENTORY_COLUMNS)
-    (inv_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(output_table))
-    print(f"Wrote {inv_df.count()} rows to {output_table}")
+    # Append (not overwrite): the table accumulates the history of every run, each
+    # tagged with run_id/run_timestamp. mergeSchema lets an older table pick up the new
+    # run columns on first append after this upgrade. The transfer phase reads only the
+    # latest run (max(run_id)), so accumulated history never affects a transfer.
+    (
+        inv_df.write.mode("append")
+        .option("mergeSchema", "true")
+        .saveAsTable(output_table)
+    )
+    print(f"Wrote {inv_df.count()} rows to {output_table} (run_id={RUN_ID})")
     display(
         spark.sql(
             f"SELECT domain, object_type, matched_admin, count(*) n "
-            f"FROM {output_table} GROUP BY 1,2,3 ORDER BY 1,2,3"
+            f"FROM {output_table} WHERE run_id = '{RUN_ID}' GROUP BY 1,2,3 ORDER BY 1,2,3"
         )
     )
 
@@ -974,12 +999,19 @@ def do_transfer(row, ws_client_cache):
 # COMMAND ----------
 
 if phase == "transfer":
-    all_rows = [r.asDict() for r in spark.table(output_table).collect()]
+    # The table retains every run's rows (append). Transfer only the most recent run,
+    # selected by max(run_id) — run_id is lexicographically sortable (UTC-time prefix).
+    latest_run = spark.sql(f"SELECT max(run_id) AS r FROM {output_table}").collect()[0]["r"]
+    all_rows = [
+        r.asDict()
+        for r in spark.table(output_table).where(f"run_id = '{latest_run}'").collect()
+    ]
     log.info(
-        "%s %d row(s) from %s",
+        "%s %d row(s) from %s (latest run_id=%s)",
         "EXECUTING" if execute else "DRY-RUN over",
         len(all_rows),
         output_table,
+        latest_run,
     )
 
     ws_client_cache = {}

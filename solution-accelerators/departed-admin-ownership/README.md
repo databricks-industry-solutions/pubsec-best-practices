@@ -117,8 +117,11 @@ your account console (AWS `accounts.cloud.databricks.com`, Azure
    ```
 3. Set the widgets: `secret_scope`, `account_id`, `departed_admins` (comma-separated
    emails), `target_group`, `output_table` (e.g. `main.admin.ownership_inventory`).
-4. `phase = inventory` → **Run All**. Review the Delta table.
-5. `phase = transfer`, `execute = false` → dry-run; inspect the `result` column.
+4. `phase = inventory` → **Run All**. Appends this run's rows (stamped with `run_id` /
+   `run_timestamp`) to the Delta table; review them. The table retains prior runs as
+   history.
+5. `phase = transfer`, `execute = false` → dry-run over the **latest run**; inspect the
+   `result` column.
 6. `phase = transfer`, `execute = true` → apply.
 
 ### Scoping which workspaces are swept (1..n)

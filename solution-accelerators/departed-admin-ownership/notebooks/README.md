@@ -72,12 +72,25 @@ workspace. Deploy and run the job in **each** workspace to cover them all.
 
 ## Workflow
 
-1. `phase = inventory` → **Run All**. Writes the Delta table and shows a summary
-   (including any files flagged as active-job dependencies).
-2. Review: `SELECT * FROM <output_table>`. The `current_owner` column records the
-   prior owner in case you need to revert.
+1. `phase = inventory` → **Run All**. **Appends** this run's rows to the Delta table
+   and shows a summary of *this run* (including any files flagged as active-job
+   dependencies).
+2. Review: `SELECT * FROM <output_table> WHERE run_id = '<run_id>'` (the `run_id` is
+   printed by the inventory run). The `current_owner` column records the prior owner
+   in case you need to revert.
 3. `phase = transfer`, `execute = false` → dry-run; inspect the `result` column.
 4. `phase = transfer`, `execute = true` → apply.
+
+### Run history
+
+Every row is stamped with `run_id` and `run_timestamp` (UTC), and inventory
+**appends** rather than overwrites — so the table accumulates one row-set per run and
+you can track ownership over time (`SELECT run_id, run_timestamp, count(*) FROM
+<output_table> GROUP BY 1, 2 ORDER BY 2`). The `transfer` phase always operates on the
+**latest run only** (`max(run_id)`), so accumulated history never affects what a
+transfer touches. On the first inventory run after upgrading an existing table, the new
+columns are added via schema merge. To reclaim space, delete old runs
+(`DELETE FROM <output_table> WHERE run_timestamp < '…'`) or drop the table.
 
 ## Notes
 

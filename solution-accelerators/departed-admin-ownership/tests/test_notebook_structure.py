@@ -89,3 +89,24 @@ def test_transfer_guards_empty_inventory(nb_source):
     # must guard the empty case so an empty inventory reports cleanly, not crashes.
     assert "if results:" in nb_source
     assert "nothing to transfer" in nb_source
+
+
+def test_inventory_has_run_identity_columns(nb_source):
+    # Every row is stamped with a run identity so the table can retain many runs.
+    assert '"run_id",' in nb_source
+    assert '"run_timestamp",' in nb_source
+    assert "RUN_ID = " in nb_source
+    assert "RUN_TIMESTAMP = " in nb_source
+
+
+def test_inventory_appends_for_history(nb_source):
+    # Inventory must append (retain history), not overwrite the table each run.
+    assert 'mode("append")' in nb_source
+    assert 'mode("overwrite")' not in nb_source
+    assert 'option("mergeSchema", "true")' in nb_source
+
+
+def test_transfer_reads_latest_run_only(nb_source):
+    # With history retained, the transfer phase must operate on the latest run only.
+    assert "max(run_id)" in nb_source
+    assert "run_id = '{latest_run}'" in nb_source
