@@ -259,13 +259,8 @@ WS_SPECS = [
         "pipeline_id",
         lambda o: o.name or o.pipeline_id,
     ),
-    (
-        "cluster",
-        "clusters",
-        lambda w: w.clusters.list(),
-        "cluster_id",
-        lambda o: o.cluster_name or o.cluster_id,
-    ),
+    # clusters handled separately (inventory_clusters) — all-purpose only, and we
+    # capture explicit non-owner ACL grants in addition to IS_OWNER.
     ("warehouse", "sql/warehouses", lambda w: w.warehouses.list(), "id", lambda o: o.name or o.id),
     (
         "serving_endpoint",
@@ -339,6 +334,96 @@ def inventory_workspace(cfg, prin, w, ws_id, host) -> Iterator[dict]:
                 )
     except Exception as e:  # noqa: BLE001
         log.debug("lakeview list failed on %s: %s", ws_id, e)
+
+    yield from inventory_clusters(cfg, prin, w, ws_id, host)
+
+
+# =============================================================================
+# All-purpose clusters
+#
+# Clusters have NO owner: the permissions API exposes only CAN_ATTACH_TO /
+# CAN_RESTART / CAN_MANAGE (there is no IS_OWNER level for clusters, unlike jobs or
+# warehouses). So a departed admin's relationship to a cluster is always an explicit
+# ACL grant, never ownership. We inventory every all-purpose cluster on which the
+# admin holds an explicit, NON-inherited grant and, at transfer time, simply revoke
+# that grant (transfer_method=cluster_revoke) — the access is never handed to the
+# group. The strongest held level is recorded in `extra`.
+#
+# Only all-purpose clusters (cluster_source UI/API) are considered — job/pipeline/
+# model-serving clusters are ephemeral and managed via their parent resource.
+# =============================================================================
+CLUSTER_PERM_RANK = {"CAN_MANAGE": 3, "CAN_RESTART": 2, "CAN_ATTACH_TO": 1}
+ALL_PURPOSE_CLUSTER_SOURCES = {"UI", "API"}
+
+
+def perm_value(level: Any) -> str:
+    """Normalize a PermissionLevel enum (or str) to its bare value, e.g. CAN_MANAGE."""
+    return str(getattr(level, "value", level) or "")
+
+
+def _strongest_cluster_level(levels: list[Any]) -> Any:
+    """The highest-privilege level among a principal's direct grants (a principal has
+    one effective grant per cluster; collapse any list to a single level for the PUT)."""
+    return max(levels, key=lambda lvl: CLUSTER_PERM_RANK.get(perm_value(lvl), 0))
+
+
+def acl_direct_grants(w, cluster_id) -> dict[str, list[Any]]:
+    """principal -> list of that principal's DIRECT (non-inherited) permission levels
+    on the cluster. Inherited/group-derived grants are excluded — we only act on
+    explicit entitlements."""
+    try:
+        pl = w.permissions.get(request_object_type="clusters", request_object_id=str(cluster_id))
+    except Exception as e:  # noqa: BLE001
+        log.debug("permissions.get(clusters/%s) failed: %s", cluster_id, e)
+        return {}
+    grants: dict[str, list[Any]] = {}
+    for acl in pl.access_control_list or []:
+        principal = acl.user_name or acl.group_name or acl.service_principal_name
+        if not principal:
+            continue
+        direct = [
+            p.permission_level
+            for p in (acl.all_permissions or [])
+            if p.permission_level and not p.inherited
+        ]
+        if direct:
+            grants[principal] = direct
+    return grants
+
+
+def inventory_clusters(cfg, prin, w, ws_id, host) -> Iterator[dict]:
+    try:
+        clusters = list(w.clusters.list())
+    except Exception as e:  # noqa: BLE001
+        log.debug("clusters.list failed on %s: %s", ws_id, e)
+        return
+    for o in clusters:
+        if perm_value(getattr(o, "cluster_source", None)) not in ALL_PURPOSE_CLUSTER_SOURCES:
+            continue
+        cid = getattr(o, "cluster_id", None)
+        if not cid:
+            continue
+        name = o.cluster_name or cid
+        for principal, levels in acl_direct_grants(w, cid).items():
+            matched = prin.matches(principal)
+            if not matched:
+                continue
+            held = perm_value(_strongest_cluster_level(levels))
+            yield _row(
+                domain="workspace",
+                workspace_id=ws_id,
+                workspace_host=host,
+                object_type="cluster_acl",
+                securable_type="clusters",
+                full_name=str(name),
+                object_id=str(cid),
+                current_owner=principal,
+                matched_admin=matched,
+                # Clusters are revoked, never transferred — no "new owner".
+                proposed_new_owner="",
+                transfer_method="cluster_revoke",
+                extra=f"EXPLICIT_PERMISSION={held}",
+            )
 
 
 # =============================================================================
@@ -564,16 +649,80 @@ UC_REST_PATH = {
 }
 
 
+def _revoke_cluster_grant(row: dict, w: WorkspaceClient, dry_run: bool) -> str:
+    """Remove the departed admin's explicit entitlement on an all-purpose cluster.
+
+    The permissions API PATCH (update) is additive and cannot delete a principal, so
+    we read the current ACL, drop the departed admin's entry, and PUT (set) the
+    remaining DIRECT grants back. Only non-inherited entries are re-sent (inherited
+    grants aren't settable and persist on their own), which preserves the owner and
+    everyone else's explicit access while removing just this user."""
+    api_type, oid = row["securable_type"], row["object_id"]
+    if not oid:
+        return f"SKIP (no cluster id for {row['full_name']})"
+    # Dry-run must not touch the workspace client — cmd_transfer builds clients only for a
+    # real run (w is None in dry-run). Preview from the level recorded in `extra`.
+    if dry_run:
+        held = (row.get("extra") or "").replace("EXPLICIT_PERMISSION=", "") or "grant"
+        return (
+            f"DRY-RUN revoke {row['matched_admin']} ({held}) from "
+            f"{api_type}/{oid} ({row['full_name']})"
+        )
+    target = (row.get("current_owner") or row.get("matched_admin") or "").strip().lower()
+    try:
+        pl = w.permissions.get(request_object_type=api_type, request_object_id=str(oid))
+    except Exception as e:  # noqa: BLE001
+        return f"SKIP (cannot read ACL for {api_type}/{oid}: {e})"
+
+    keep: list[iam.AccessControlRequest] = []
+    removed: list[str] = []
+    for acl in pl.access_control_list or []:
+        principal = acl.user_name or acl.group_name or acl.service_principal_name
+        direct = [
+            p.permission_level
+            for p in (acl.all_permissions or [])
+            if p.permission_level and not p.inherited
+        ]
+        if not direct:
+            continue
+        if principal and principal.strip().lower() == target:
+            removed += [perm_value(lvl) for lvl in direct]
+            continue  # drop the departed admin's grant(s)
+        # One request per principal (PUT expects a single level per principal); if a
+        # principal somehow has several direct levels, keep the strongest.
+        lvl = _strongest_cluster_level(direct)
+        if acl.user_name:
+            keep.append(iam.AccessControlRequest(user_name=acl.user_name, permission_level=lvl))
+        elif acl.group_name:
+            keep.append(iam.AccessControlRequest(group_name=acl.group_name, permission_level=lvl))
+        elif acl.service_principal_name:
+            keep.append(
+                iam.AccessControlRequest(
+                    service_principal_name=acl.service_principal_name, permission_level=lvl
+                )
+            )
+
+    if not removed:
+        return f"SKIP (no explicit grant for {row['matched_admin']} on {api_type}/{oid})"
+    # `keep` may be empty if the departed admin was the only direct grantee — that is
+    # the intended end state (only inherited access remains), so we still PUT it.
+    w.permissions.set(request_object_type=api_type, request_object_id=str(oid), access_control_list=keep)
+    return f"OK revoked {row['matched_admin']} ({','.join(removed)}) from {api_type}/{oid}"
+
+
 def transfer_row(
     cfg: Config, row: dict, w: WorkspaceClient, warehouse_id: str, dry_run: bool
 ) -> str:
     grp = row["proposed_new_owner"] or cfg.target_group
     method = row["transfer_method"]
     if (
-        method not in ("wsfs_permissions", "jobs_update_run_as")
+        method not in ("wsfs_permissions", "jobs_update_run_as", "cluster_revoke")
         and (row.get("current_owner") or "").lower() == grp.lower()
     ):
         return f"SKIP already owned by {grp}"
+
+    if method == "cluster_revoke":
+        return _revoke_cluster_grant(row, w, dry_run)
 
     if method == "sql_alter":
         tmpl = UC_ALTER.get(row["object_type"])

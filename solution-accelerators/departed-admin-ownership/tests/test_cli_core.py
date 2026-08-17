@@ -164,6 +164,129 @@ def test_uc_rest_url_encodes_name():
     assert "my%20loc%2Fprod" in msg
 
 
+# --- all-purpose cluster inventory + grant revocation ---------------------------
+import types  # noqa: E402
+from unittest.mock import MagicMock  # noqa: E402
+
+
+def _perm(level, inherited=False):
+    return types.SimpleNamespace(
+        permission_level=types.SimpleNamespace(value=level), inherited=inherited
+    )
+
+
+def _acl(user, perms):
+    return types.SimpleNamespace(
+        user_name=user, group_name=None, service_principal_name=None, all_permissions=perms
+    )
+
+
+def _cluster(cid, name, source):
+    return types.SimpleNamespace(
+        cluster_id=cid, cluster_name=name, cluster_source=types.SimpleNamespace(value=source)
+    )
+
+
+def _prin():
+    return core.Principals(
+        by_key={"gone@x.com": "gone@x.com"},
+        emails={"gone@x.com"},
+        target_group="grp",
+        target_group_present=True,
+        scim_resolved={"gone@x.com"},
+    )
+
+
+def _cluster_w():
+    """Mock WorkspaceClient: two all-purpose clusters and one job cluster. Clusters have
+    NO IS_OWNER level — only CAN_ATTACH_TO/CAN_RESTART/CAN_MANAGE. The departed admin
+    holds CAN_MANAGE on c1 and CAN_ATTACH_TO+CAN_RESTART on c2. c2 also has another
+    principal (peer@) with two direct levels — exercising per-principal collapse — and
+    an inherited admins grant that must be ignored."""
+    w = MagicMock()
+    w.clusters.list.return_value = [
+        _cluster("c1", "owned", "UI"),
+        _cluster("c2", "shared", "API"),
+        _cluster("cj", "jobclust", "JOB"),
+    ]
+
+    def perms_get(request_object_type, request_object_id):
+        if request_object_id == "c1":
+            acls = [
+                _acl("gone@x.com", [_perm("CAN_MANAGE")]),
+                _acl("other@x.com", [_perm("CAN_ATTACH_TO")]),
+            ]
+        elif request_object_id == "c2":
+            acls = [
+                _acl("peer@x.com", [_perm("CAN_RESTART"), _perm("CAN_MANAGE")]),
+                _acl("gone@x.com", [_perm("CAN_ATTACH_TO"), _perm("CAN_RESTART")]),
+                _acl("admins", [_perm("CAN_MANAGE", inherited=True)]),
+            ]
+        else:
+            acls = []
+        return types.SimpleNamespace(access_control_list=acls)
+
+    w.permissions.get.side_effect = perms_get
+    return w
+
+
+def test_inventory_clusters_always_revoke_never_transfer():
+    rows = list(core.inventory_clusters(_cfg(), _prin(), _cluster_w(), 111, "https://h"))
+    # job cluster excluded; both all-purpose clusters emit a revoke row (clusters have
+    # no owner, so nothing is ever transferred).
+    assert len(rows) == 2
+    assert all(r["object_type"] == "cluster_acl" for r in rows)
+    assert all(r["transfer_method"] == "cluster_revoke" for r in rows)
+    by_name = {r["full_name"]: r for r in rows}
+    assert by_name["owned"]["extra"] == "EXPLICIT_PERMISSION=CAN_MANAGE"
+    # strongest of the admin's grants on c2 (CAN_ATTACH_TO, CAN_RESTART)
+    assert by_name["shared"]["extra"] == "EXPLICIT_PERMISSION=CAN_RESTART"
+
+
+def test_cluster_revoke_removes_only_departed_admin_and_dedupes_principals():
+    w = _cluster_w()
+    captured = {}
+    w.permissions.set.side_effect = lambda request_object_type, request_object_id, access_control_list: captured.update(
+        acl=access_control_list
+    )
+    row = {
+        "securable_type": "clusters",
+        "object_id": "c2",
+        "full_name": "shared",
+        "current_owner": "gone@x.com",
+        "matched_admin": "gone@x.com",
+        "transfer_method": "cluster_revoke",
+        "proposed_new_owner": "grp",
+    }
+    msg = core.transfer_row(_cfg(), row, w, "", dry_run=False)
+    assert msg.startswith("OK revoked gone@x.com")
+    kept = [(a.user_name, a.permission_level.value) for a in captured["acl"]]
+    assert not any(u == "gone@x.com" for u, _ in kept)  # departed admin removed
+    assert not any(u == "admins" for u, _ in kept)  # inherited grant not re-sent
+    # peer@ preserved as exactly ONE entry, collapsed to its strongest level
+    peer = [lvl for u, lvl in kept if u == "peer@x.com"]
+    assert peer == ["CAN_MANAGE"]
+
+
+def test_cluster_revoke_dry_run_needs_no_client():
+    # Regression: cmd_transfer builds no workspace client in dry-run mode, so a
+    # cluster_revoke dry-run must not touch the client (w is None). It should preview
+    # from row['extra'] rather than reading the live ACL.
+    row = {
+        "securable_type": "clusters",
+        "object_id": "c2",
+        "full_name": "shared",
+        "current_owner": "gone@x.com",
+        "matched_admin": "gone@x.com",
+        "transfer_method": "cluster_revoke",
+        "proposed_new_owner": "",
+        "extra": "EXPLICIT_PERMISSION=CAN_RESTART",
+    }
+    msg = core.transfer_row(_cfg(), row, None, "", dry_run=True)  # w is None
+    assert msg.startswith("DRY-RUN revoke gone@x.com")
+    assert "CAN_RESTART" in msg
+
+
 def test_dedupe_uc_drops_repeat_metastore_rows_keeps_per_workspace():
     from main import _dedupe_uc
 

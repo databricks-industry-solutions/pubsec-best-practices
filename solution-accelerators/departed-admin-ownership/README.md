@@ -28,9 +28,26 @@ Two phases, **dry-run first**:
 |--------|---------|--------------|----------|
 | Unity Catalog | catalogs, schemas, tables/views, volumes, functions | `information_schema.*_owner` | `ALTER … OWNER TO` |
 | Unity Catalog | external locations, storage credentials, connections, shares, recipients, registered models | REST `owner` | owner-only PATCH |
-| Workspace | jobs, pipelines, clusters, SQL warehouses, serving endpoints, experiments, MLflow models, Lakeview dashboards | `IS_OWNER` via permissions API | set group `IS_OWNER` |
+| Workspace | jobs, pipelines, SQL warehouses, serving endpoints, experiments, MLflow models, Lakeview dashboards | `IS_OWNER` via permissions API | set group `IS_OWNER` |
+| Workspace | all-purpose clusters where the admin holds an explicit grant (`CAN_ATTACH_TO`/`CAN_RESTART`/`CAN_MANAGE`) | non-inherited ACL entry via permissions API | **revoke** the admin's entitlement (no group grant) |
 | Workspace files | notebooks, files, dirs, repos, dashboards in `/Users/<email>/` + `/Repos/<email>/` | home-tree location (WSFS has **no owner**) | grant group **CAN_MANAGE** (additive) |
 | Job `run_as` | jobs whose **effective** run identity is a departed admin | `run_as_user_name` (via `jobs.get`) | set `run_as` to a **per-workspace SP** |
+
+### All-purpose clusters: grant revocation
+
+Clusters have **no owner** — the permissions API exposes only `CAN_ATTACH_TO` /
+`CAN_RESTART` / `CAN_MANAGE`, with no `IS_OWNER` level (unlike jobs or warehouses). A
+departed admin's tie to a cluster is therefore always an explicit ACL grant, never
+ownership, so clusters are never transferred to the group — they are revoked.
+
+Only all-purpose clusters (`cluster_source` = `UI`/`API`) are considered — job/pipeline/
+model-serving clusters are ephemeral and managed via their parent resource. Every such
+cluster on which the admin holds an explicit, **non-inherited** grant is inventoried as
+`object_type=cluster_acl`, `transfer_method=cluster_revoke`, with the strongest held
+level noted in `extra`. The execute step **removes just that user's grant** from the
+cluster ACL. Because the permissions API PATCH cannot delete a principal, the ACL is
+re-`set` from every other principal's direct grant (one entry per principal); inherited
+or group-derived access is left untouched.
 
 ### Job `run_as` reassignment
 

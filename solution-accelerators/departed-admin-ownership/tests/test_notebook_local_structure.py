@@ -129,3 +129,38 @@ def test_local_transfer_reads_latest_run_only(nb_local_source):
     # With history retained, the transfer phase must operate on the latest run only.
     assert "max(run_id)" in nb_local_source
     assert "run_id = '{latest_run}'" in nb_local_source
+
+
+def _code_only(cell: str) -> str:
+    """Drop comment lines so substring checks see real code, not prose in comments."""
+    return "\n".join(ln for ln in cell.splitlines() if not ln.lstrip().startswith("#"))
+
+
+def test_local_display_and_exit_never_in_same_cell(nb_local_source):
+    # dbutils.notebook.exit() stops the notebook and suppresses a display() queued in the
+    # SAME cell — so no cell may contain both. Regression guard: the transfer results grid
+    # previously failed to render because display() and exit() shared a cell.
+    cells = [_code_only(c) for c in nb_local_source.split("# COMMAND ----------")]
+    offenders = [
+        i for i, c in enumerate(cells) if "display(" in c and "dbutils.notebook.exit(" in c
+    ]
+    assert not offenders, f"cells containing both display() and exit(): {offenders}"
+
+
+def test_local_transfer_persists_results_and_surfaces_failures(nb_local_source):
+    # Per-row outcomes are written to a durable results table (so failures survive even
+    # when display output isn't rendered), and non-success rows are printed explicitly.
+    assert "_transfer_results" in nb_local_source
+    assert "did NOT transfer" in nb_local_source
+
+
+def test_local_clusters_scoped_to_all_purpose(nb_local_source):
+    assert "ALL_PURPOSE_CLUSTER_SOURCES" in nb_local_source
+    assert "cluster_source" in nb_local_source
+
+
+def test_local_cluster_explicit_grant_is_revoked_not_transferred(nb_local_source):
+    assert "cluster_revoke" in nb_local_source
+    assert "object_type=\"cluster_acl\"" in nb_local_source
+    assert "not p.inherited" in nb_local_source
+    assert "permissions.set(" in nb_local_source

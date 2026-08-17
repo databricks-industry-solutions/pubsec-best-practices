@@ -375,13 +375,8 @@ WS_SPECS = [
         "pipeline_id",
         lambda o: o.name or o.pipeline_id,
     ),
-    (
-        "cluster",
-        "clusters",
-        lambda: w.clusters.list(),
-        "cluster_id",
-        lambda o: o.cluster_name or o.cluster_id,
-    ),
+    # clusters handled separately below — all-purpose only, capturing explicit
+    # non-owner ACL grants in addition to IS_OWNER.
     ("warehouse", "sql/warehouses", lambda: w.warehouses.list(), "id", lambda o: o.name or o.id),
     (
         "serving_endpoint",
@@ -449,6 +444,90 @@ if phase == "inventory" and scope_ws:
                 )
     except Exception as e:  # noqa: BLE001
         log.debug("lakeview list failed: %s", e)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### All-purpose clusters
+# MAGIC Clusters have **no owner** — the permissions API exposes only CAN_ATTACH_TO /
+# MAGIC CAN_RESTART / CAN_MANAGE (no IS_OWNER level, unlike jobs or warehouses). So a
+# MAGIC departed admin's tie to a cluster is always an explicit ACL grant, never
+# MAGIC ownership. We inventory every all-purpose cluster (`cluster_source` UI/API) on
+# MAGIC which the admin holds an explicit, **non-inherited** grant, and the transfer
+# MAGIC phase simply **revokes** it (`cluster_revoke`) — access is never handed to the
+# MAGIC group. Strongest held level recorded in `extra`.
+
+# COMMAND ----------
+
+CLUSTER_PERM_RANK = {"CAN_MANAGE": 3, "CAN_RESTART": 2, "CAN_ATTACH_TO": 1}
+ALL_PURPOSE_CLUSTER_SOURCES = {"UI", "API"}
+
+
+def perm_value(level):
+    """Normalize a PermissionLevel enum (or str) to its bare value, e.g. CAN_MANAGE."""
+    return str(getattr(level, "value", level) or "")
+
+
+def strongest_cluster_level(levels):
+    """Highest-privilege level among a principal's direct grants (one effective grant
+    per cluster; collapse any list to a single level for the PUT)."""
+    return max(levels, key=lambda lvl: CLUSTER_PERM_RANK.get(perm_value(lvl), 0))
+
+
+def acl_direct_grants(cluster_id):
+    """principal -> list of that principal's DIRECT (non-inherited) permission levels
+    on the cluster. Inherited/group-derived grants are excluded."""
+    try:
+        pl = w.permissions.get(request_object_type="clusters", request_object_id=str(cluster_id))
+    except Exception as e:  # noqa: BLE001
+        log.debug("permissions.get(clusters/%s) failed: %s", cluster_id, e)
+        return {}
+    grants = {}
+    for acl in pl.access_control_list or []:
+        principal = acl.user_name or acl.group_name or acl.service_principal_name
+        if not principal:
+            continue
+        direct = [
+            p.permission_level
+            for p in (acl.all_permissions or [])
+            if p.permission_level and not p.inherited
+        ]
+        if direct:
+            grants[principal] = direct
+    return grants
+
+
+if phase == "inventory" and scope_ws:
+    try:
+        clusters = list(w.clusters.list())
+    except Exception as e:  # noqa: BLE001
+        log.debug("clusters.list failed: %s", e)
+        clusters = []
+    for o in clusters:
+        if perm_value(getattr(o, "cluster_source", None)) not in ALL_PURPOSE_CLUSTER_SOURCES:
+            continue
+        cid = getattr(o, "cluster_id", None)
+        if not cid:
+            continue
+        name = o.cluster_name or cid
+        for principal, levels in acl_direct_grants(cid).items():
+            matched = match_owner(principal)
+            if not matched:
+                continue
+            held = perm_value(strongest_cluster_level(levels))
+            emit(
+                domain="workspace",
+                object_type="cluster_acl",
+                securable_type="clusters",
+                full_name=str(name),
+                object_id=str(cid),
+                current_owner=principal,
+                matched_admin=matched,
+                # Clusters are revoked, never transferred — no "new owner".
+                proposed_new_owner="",
+                transfer_method="cluster_revoke",
+                extra=f"EXPLICIT_PERMISSION={held}",
+            )
 
 # COMMAND ----------
 
@@ -781,13 +860,64 @@ def _bt(identifier):
 def do_transfer(row):
     grp = row["proposed_new_owner"] or target_group
     method = row["transfer_method"]
-    # Idempotency skip does not apply to WSFS (current_owner is the home-tree admin, not
-    # an ACL principal) or run_as (target is a per-workspace SP, not a group).
+    # Idempotency skip does not apply where current_owner is not an ownership
+    # principal: WSFS (home-tree admin), run_as (per-workspace SP), or cluster_revoke
+    # (the departed admin whose explicit grant we're removing).
     if (
-        method not in ("wsfs_permissions", "jobs_update_run_as")
+        method not in ("wsfs_permissions", "jobs_update_run_as", "cluster_revoke")
         and (row["current_owner"] or "").lower() == grp.lower()
     ):
         return f"SKIP already owned by {grp}"
+
+    if method == "cluster_revoke":
+        # Remove the departed admin's explicit entitlement on an all-purpose cluster.
+        # PATCH (update) is additive and can't delete a principal, so read the ACL,
+        # drop the departed admin, and PUT (set) the remaining DIRECT grants back
+        # (inherited entries aren't settable and persist on their own). Preserves the
+        # owner and everyone else's explicit access.
+        api_type, oid = row["securable_type"], row["object_id"]
+        if not oid:
+            return f"SKIP (no cluster id for {row['full_name']})"
+        if not execute:
+            held = str(row.get("extra", "")).replace("EXPLICIT_PERMISSION=", "") or "grant"
+            return f"DRY-RUN revoke {row['matched_admin']} ({held}) from {api_type}/{oid} ({row['full_name']})"
+        try:
+            pl = w.permissions.get(request_object_type=api_type, request_object_id=str(oid))
+        except Exception as e:  # noqa: BLE001
+            return f"SKIP (cannot read ACL for {api_type}/{oid}: {e})"
+        target = (row["current_owner"] or row["matched_admin"] or "").strip().lower()
+        keep, removed = [], []
+        for acl in pl.access_control_list or []:
+            principal = acl.user_name or acl.group_name or acl.service_principal_name
+            direct = [
+                p.permission_level
+                for p in (acl.all_permissions or [])
+                if p.permission_level and not p.inherited
+            ]
+            if not direct:
+                continue
+            if principal and principal.strip().lower() == target:
+                removed += [str(getattr(lvl, "value", lvl)) for lvl in direct]
+                continue
+            # One request per principal (PUT expects a single level per principal); if a
+            # principal somehow has several direct levels, keep the strongest.
+            lvl = strongest_cluster_level(direct)
+            if acl.user_name:
+                keep.append(iam.AccessControlRequest(user_name=acl.user_name, permission_level=lvl))
+            elif acl.group_name:
+                keep.append(iam.AccessControlRequest(group_name=acl.group_name, permission_level=lvl))
+            elif acl.service_principal_name:
+                keep.append(
+                    iam.AccessControlRequest(
+                        service_principal_name=acl.service_principal_name, permission_level=lvl
+                    )
+                )
+        if not removed:
+            return f"SKIP (no explicit grant for {row['matched_admin']} on {api_type}/{oid})"
+        # `keep` may be empty if the admin was the only direct grantee — intended end
+        # state (only inherited access remains), so we still PUT it.
+        w.permissions.set(request_object_type=api_type, request_object_id=str(oid), access_control_list=keep)
+        return f"OK revoked {row['matched_admin']} ({','.join(removed)}) from {api_type}/{oid}"
 
     if method == "sql_alter":
         tmpl = UC_ALTER.get(row["object_type"])
@@ -897,6 +1027,8 @@ def do_transfer(row):
 # COMMAND ----------
 
 if phase == "transfer":
+    from pyspark.sql import Row
+
     # The table retains every run's rows (append). Transfer only the most recent run,
     # selected by max(run_id) — run_id is lexicographically sortable (UTC-time prefix).
     latest_run = spark.sql(f"SELECT max(run_id) AS r FROM {output_table}").collect()[0]["r"]
@@ -912,6 +1044,9 @@ if phase == "transfer":
         latest_run,
     )
 
+    _t_dt = datetime.now(timezone.utc)
+    transfer_timestamp = _t_dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{_t_dt.microsecond // 1000:03d}Z"
+
     results = []
     ok = skip = err = 0
     for r in all_rows:
@@ -922,25 +1057,86 @@ if phase == "transfer":
             else:
                 skip += 1
         except Exception as e:  # noqa: BLE001
-            res = f"ERR {e}"
+            # Capture the full exception (with type) so the failure reason is retained
+            # verbatim in the results table and the printed summary below.
+            res = f"ERR {type(e).__name__}: {e}"
             err += 1
-        results.append({**r, "result": res})
+        results.append(
+            {
+                **r,
+                "result": res,
+                "executed": str(bool(execute)).lower(),
+                "transfer_run_id": latest_run,
+                "transfer_timestamp": transfer_timestamp,
+            }
+        )
         log.info("%s | %s %s", res, r["object_type"], r["full_name"])
 
-    # Guard the empty case: spark.createDataFrame([]) can't infer a schema and raises.
-    # An empty inventory just means "nothing to transfer" — report it cleanly.
+    # Persist every per-row outcome to a durable, queryable table (append = history).
+    # This is the source of truth for WHY a row did not transfer: the full error text is
+    # retained here even when the notebook's display() output is not rendered (e.g. a
+    # job run) or is truncated. Named alongside the inventory table.
+    results_table = f"{output_table}_transfer_results"
+    RESULT_COLUMNS = INVENTORY_COLUMNS + [
+        "result",
+        "executed",
+        "transfer_run_id",
+        "transfer_timestamp",
+    ]
+    if results:
+        res_df = spark.createDataFrame(
+            [Row(**{c: ("" if row.get(c) is None else str(row.get(c))) for c in RESULT_COLUMNS}) for row in results]
+        ).select(*RESULT_COLUMNS)
+        (
+            res_df.write.mode("append").option("mergeSchema", "true").saveAsTable(results_table)
+        )
+        print(f"Wrote {len(results)} result row(s) to {results_table} (transfer_run_id={latest_run})")
+
+    # Show the outcomes. Guard the empty case: spark.createDataFrame([]) can't infer a
+    # schema and raises — an empty inventory just means "nothing to transfer".
     if results:
         display(
             spark.createDataFrame(results).select(
                 "result", "domain", "object_type", "full_name", "current_owner",
-                "proposed_new_owner",
+                "matched_admin", "transfer_method",
             )
         )
     else:
         print("Inventory table is empty — nothing to transfer.")
-    print(f"Done. {'(dry-run) ' if not execute else ''}ok/dry={ok} skip={skip} err={err}")
+
+    # Explicitly surface every non-success row in plain text — not truncated (unlike the
+    # display grid) and visible in job logs. A row is a "problem" if it neither applied
+    # (OK) nor is a dry-run preview (DRY-RUN): i.e. it was SKIPped or it ERRored.
+    problems = [x for x in results if not x["result"].startswith(("OK", "DRY-RUN"))]
+    if problems:
+        print(f"\n⚠ {len(problems)} row(s) did NOT transfer (SKIP/ERR):")
+        for x in problems:
+            print(
+                f"  [{x['result'].split()[0]}] {x['object_type']} '{x['full_name']}' "
+                f"({x['transfer_method']}) — {x['result']}"
+            )
+
+    print(f"\nDone. {'(dry-run) ' if not execute else ''}ok/dry={ok} skip={skip} err={err}")
+    if err:
+        print(f"⚠ {err} row(s) ERRORED — full detail above and in table {results_table}.")
     if not execute:
         print("Set execute = true and re-run to apply.")
+
+# COMMAND ----------
+
+if phase == "transfer":
+    # Exit is in its OWN cell: dbutils.notebook.exit() stops the notebook immediately and
+    # would suppress a display() queued in the same cell — which is why the results grid
+    # previously never rendered. Keeping it separate lets the cell above render fully.
     dbutils.notebook.exit(
-        json.dumps({"phase": "transfer", "execute": execute, "ok": ok, "skip": skip, "err": err})
+        json.dumps(
+            {
+                "phase": "transfer",
+                "execute": execute,
+                "ok": ok,
+                "skip": skip,
+                "err": err,
+                "results_table": results_table,
+            }
+        )
     )
