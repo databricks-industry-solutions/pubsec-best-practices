@@ -105,6 +105,15 @@ if scope_run_as and not run_as_sp:
     )
 if errors:
     raise ValueError("Config errors:\n  - " + "\n  - ".join(errors))
+# Warning (not fatal): object ownership can only be reassigned to a service principal,
+# never a group. Without run_as_sp set, workspace objects are inventoried but the transfer
+# SKIPS their ownership, leaving the departed admin as owner.
+if scope_ws and not run_as_sp:
+    log.warning(
+        "scope_ws is on but run_as_sp is empty — object OWNERSHIP "
+        "(jobs/pipelines/warehouses/dashboards) can only go to a service principal, so the "
+        "transfer will SKIP those rows and the departed admin stays owner. Set run_as_sp."
+    )
 
 # Stamp every row of this run with a shared identity so the inventory table can retain
 # the history of many runs (append, not overwrite). RUN_ID is sortable + unique, so the
@@ -424,6 +433,8 @@ if phase == "inventory" and scope_ws:
                 object_id=str(oid),
                 current_owner=owner,
                 matched_admin=matched,
+                # Ownership must be a user/SP, not a group — reassign to run_as_sp.
+                proposed_new_owner=run_as_sp,
                 transfer_method="permissions_api",
             )
     # Lakeview dashboards (separate API)
@@ -440,6 +451,7 @@ if phase == "inventory" and scope_ws:
                     object_id=d.dashboard_id,
                     current_owner=owner,
                     matched_admin=matched,
+                    proposed_new_owner=run_as_sp,
                     transfer_method="permissions_api",
                 )
     except Exception as e:  # noqa: BLE001
@@ -864,7 +876,7 @@ def do_transfer(row):
     # principal: WSFS (home-tree admin), run_as (per-workspace SP), or cluster_revoke
     # (the departed admin whose explicit grant we're removing).
     if (
-        method not in ("wsfs_permissions", "jobs_update_run_as", "cluster_revoke")
+        method not in ("wsfs_permissions", "jobs_update_run_as", "cluster_revoke", "permissions_api")
         and (row["current_owner"] or "").lower() == grp.lower()
     ):
         return f"SKIP already owned by {grp}"
@@ -944,17 +956,52 @@ def do_transfer(row):
         return f"OK PATCH {path} owner -> {grp}"
 
     if method == "permissions_api":
+        # Ownership must be a user/SP, never a group. Reassign to run_as_sp
+        # (proposed_new_owner) via a PUT with the full ACL: exactly one IS_OWNER (the
+        # SP), other principals' direct grants preserved, the departed admin dropped.
+        # (A group is rejected; a PATCH can't change the owner — warehouses reject it,
+        # and adding an IS_OWNER via PATCH leaves two owners.)
+        api_type, oid = row["securable_type"], row["object_id"]
+        owner_sp = (row.get("proposed_new_owner") or "").strip()
+        if not owner_sp:
+            return (
+                f"SKIP (no run_as_sp configured — cannot reassign owner of "
+                f"{api_type}/{oid}; set run_as_sp)"
+            )
         if not execute:
-            return f"DRY-RUN set {grp} IS_OWNER on {row['securable_type']}/{row['object_id']}"
-        acl = iam.AccessControlRequest(
-            group_name=grp, permission_level=iam.PermissionLevel.IS_OWNER
-        )
-        w.permissions.update(
-            request_object_type=row["securable_type"],
-            request_object_id=str(row["object_id"]),
-            access_control_list=[acl],
-        )
-        return f"OK set {grp} IS_OWNER on {row['securable_type']}/{row['object_id']}"
+            return (
+                f"DRY-RUN set SP {owner_sp} IS_OWNER on {api_type}/{oid} "
+                f"({row['full_name']}) [was {row['current_owner']}]"
+            )
+        try:
+            pl = w.permissions.get(request_object_type=api_type, request_object_id=str(oid))
+        except Exception as e:  # noqa: BLE001
+            return f"SKIP (cannot read ACL for {api_type}/{oid}: {e})"
+        departed = (row["current_owner"] or row["matched_admin"] or "").strip().lower()
+        keep = [
+            iam.AccessControlRequest(
+                service_principal_name=owner_sp, permission_level=iam.PermissionLevel.IS_OWNER
+            )
+        ]
+        for acl in pl.access_control_list or []:
+            principal = acl.user_name or acl.group_name or acl.service_principal_name
+            if not principal or principal.strip().lower() in (departed, owner_sp.lower()):
+                continue
+            for p in acl.all_permissions or []:
+                if not p.permission_level or p.inherited or "IS_OWNER" in perm_value(p.permission_level):
+                    continue
+                if acl.user_name:
+                    keep.append(iam.AccessControlRequest(user_name=acl.user_name, permission_level=p.permission_level))
+                elif acl.group_name:
+                    keep.append(iam.AccessControlRequest(group_name=acl.group_name, permission_level=p.permission_level))
+                elif acl.service_principal_name:
+                    keep.append(
+                        iam.AccessControlRequest(
+                            service_principal_name=acl.service_principal_name, permission_level=p.permission_level
+                        )
+                    )
+        w.permissions.set(request_object_type=api_type, request_object_id=str(oid), access_control_list=keep)
+        return f"OK set SP {owner_sp} IS_OWNER on {api_type}/{oid} (was {row['current_owner']})"
 
     if method == "wsfs_permissions":
         # No owner on WSFS — grant the group CAN_MANAGE (additive) so access survives

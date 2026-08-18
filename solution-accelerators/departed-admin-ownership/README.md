@@ -28,10 +28,29 @@ Two phases, **dry-run first**:
 |--------|---------|--------------|----------|
 | Unity Catalog | catalogs, schemas, tables/views, volumes, functions | `information_schema.*_owner` | `ALTER … OWNER TO` |
 | Unity Catalog | external locations, storage credentials, connections, shares, recipients, registered models | REST `owner` | owner-only PATCH |
-| Workspace | jobs, pipelines, SQL warehouses, serving endpoints, experiments, MLflow models, Lakeview dashboards | `IS_OWNER` via permissions API | set group `IS_OWNER` |
+| Workspace | jobs, pipelines, SQL warehouses, serving endpoints, experiments, MLflow models, Lakeview dashboards | `IS_OWNER` via permissions API | reassign `IS_OWNER` to the **run_as SP** (see below) |
 | Workspace | all-purpose clusters where the admin holds an explicit grant (`CAN_ATTACH_TO`/`CAN_RESTART`/`CAN_MANAGE`) | non-inherited ACL entry via permissions API | **revoke** the admin's entitlement (no group grant) |
 | Workspace files | notebooks, files, dirs, repos, dashboards in `/Users/<email>/` + `/Repos/<email>/` | home-tree location (WSFS has **no owner**) | grant group **CAN_MANAGE** (additive) |
 | Job `run_as` | jobs whose **effective** run identity is a departed admin | `run_as_user_name` (via `jobs.get`) | set `run_as` to a **per-workspace SP** |
+
+### Workspace-object ownership goes to a service principal, not the group
+
+A **group cannot own** a workspace object: jobs reject it outright (`Groups cannot be
+owners`), and although a warehouse will accept a group owner, the owner cannot be changed
+with the additive PATCH the rest of the tool uses (warehouses reject an owner PATCH; a
+PATCH that adds an `IS_OWNER` to a job leaves *two* owners — `must have exactly one
+owner`). So workspace-object ownership is reassigned to **this workspace's run_as service
+principal** — the same SP configured for `run_as` (`run_as_sp_map` / `run_as_sp`), reused
+as the durable owner. The transfer does a full-ACL `set` (PUT) with exactly one
+`IS_OWNER` (the SP), preserving every other principal's direct grant and dropping the
+departed admin. **If no run_as SP is configured for a workspace, those rows are inventoried
+but the transfer skips them** (there is no valid group target). Unity Catalog securables
+are unaffected — a group *can* own those, so they still transfer to the target group.
+
+All of jobs, pipelines, warehouses, serving endpoints, experiments, MLflow models, and
+Lakeview dashboards are crawled, but only object types that actually expose an `IS_OWNER`
+(jobs, pipelines, warehouses, dashboards) ever match — the others have no owner concept
+(their ACLs are CAN_VIEW/CAN_MANAGE/…), so they never produce an ownership row.
 
 ### All-purpose clusters: grant revocation
 

@@ -154,6 +154,12 @@ def test_local_transfer_persists_results_and_surfaces_failures(nb_local_source):
     assert "did NOT transfer" in nb_local_source
 
 
+def test_local_workspace_owner_reassigned_to_sp_not_group(nb_local_source):
+    # IS_OWNER of a workspace object can't be a group — reassign to run_as_sp (an SP).
+    assert "service_principal_name=owner_sp" in nb_local_source
+    assert "proposed_new_owner=run_as_sp" in nb_local_source
+
+
 def test_local_clusters_scoped_to_all_purpose(nb_local_source):
     assert "ALL_PURPOSE_CLUSTER_SOURCES" in nb_local_source
     assert "cluster_source" in nb_local_source

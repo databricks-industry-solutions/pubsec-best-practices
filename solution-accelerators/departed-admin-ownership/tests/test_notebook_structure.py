@@ -135,6 +135,13 @@ def test_transfer_persists_results_and_surfaces_failures(nb_source):
     assert "did NOT transfer" in nb_source
 
 
+def test_workspace_owner_reassigned_to_sp_not_group(nb_source):
+    # IS_OWNER of a workspace object can't be a group — the transfer must reassign to a
+    # service principal (the run_as SP) via a full-ACL set, not a group PATCH.
+    assert "service_principal_name=owner_sp" in nb_source
+    assert "owner_sp = run_as_sp_map.get(str(ws_id)" in nb_source
+
+
 def test_clusters_scoped_to_all_purpose(nb_source):
     # Only all-purpose clusters (cluster_source UI/API) are inventoried — job/pipeline
     # clusters are excluded.

@@ -287,6 +287,11 @@ WS_SPECS = [
 
 
 def inventory_workspace(cfg, prin, w, ws_id, host) -> Iterator[dict]:
+    # Workspace-object ownership (IS_OWNER) must be a user or service principal — a
+    # group cannot own a job/pipeline/warehouse/dashboard. We reassign to this
+    # workspace's run_as service principal (reused as the durable owner). If none is
+    # configured, the row still lists the object but the transfer will skip it.
+    owner_sp = cfg.run_as_sp_map.get(ws_id, "")
     for label, api_type, lister, id_attr, name_fn in WS_SPECS:
         try:
             objs = list(lister(w))
@@ -311,7 +316,7 @@ def inventory_workspace(cfg, prin, w, ws_id, host) -> Iterator[dict]:
                 object_id=str(oid),
                 current_owner=owner,
                 matched_admin=matched,
-                proposed_new_owner=prin.target_group,
+                proposed_new_owner=owner_sp,
                 transfer_method="permissions_api",
             )
     try:
@@ -329,7 +334,7 @@ def inventory_workspace(cfg, prin, w, ws_id, host) -> Iterator[dict]:
                     object_id=d.dashboard_id,
                     current_owner=owner,
                     matched_admin=matched,
-                    proposed_new_owner=prin.target_group,
+                    proposed_new_owner=owner_sp,
                     transfer_method="permissions_api",
                 )
     except Exception as e:  # noqa: BLE001
@@ -649,6 +654,65 @@ UC_REST_PATH = {
 }
 
 
+def _reassign_owner_to_sp(row: dict, w: WorkspaceClient, dry_run: bool) -> str:
+    """Reassign IS_OWNER of a workspace object (job/pipeline/warehouse/dashboard) to a
+    service principal.
+
+    A group cannot own these objects ("Groups cannot be owners"), and the owner cannot
+    be changed with a PATCH: warehouses reject it outright, and a PATCH that adds a new
+    IS_OWNER leaves the old one ("must have exactly one owner"). So we PUT the full ACL
+    with exactly one IS_OWNER (the SP), preserving every other principal's direct grant
+    and dropping the departed admin. proposed_new_owner carries this workspace's run_as
+    SP application id (set at inventory)."""
+    api_type, oid = row["securable_type"], row["object_id"]
+    owner_sp = (row.get("proposed_new_owner") or "").strip()
+    if not owner_sp:
+        return (
+            f"SKIP (no run_as SP for this workspace — cannot reassign owner of "
+            f"{api_type}/{oid}; set run_as_sp_map)"
+        )
+    if dry_run:
+        return (
+            f"DRY-RUN set SP {owner_sp} IS_OWNER on {api_type}/{oid} "
+            f"({row['full_name']}) [was {row['current_owner']}]"
+        )
+    departed = (row.get("current_owner") or row.get("matched_admin") or "").strip().lower()
+    try:
+        pl = w.permissions.get(request_object_type=api_type, request_object_id=str(oid))
+    except Exception as e:  # noqa: BLE001
+        return f"SKIP (cannot read ACL for {api_type}/{oid}: {e})"
+    # Rebuild the ACL: SP as the sole owner, other principals' direct grants preserved,
+    # the departed admin dropped. Never re-send a second IS_OWNER or the SP twice.
+    keep = [
+        iam.AccessControlRequest(
+            service_principal_name=owner_sp, permission_level=iam.PermissionLevel.IS_OWNER
+        )
+    ]
+    for acl in pl.access_control_list or []:
+        principal = acl.user_name or acl.group_name or acl.service_principal_name
+        if not principal or principal.strip().lower() == departed:
+            continue
+        if principal.strip().lower() == owner_sp.lower():  # added above as the owner
+            continue
+        for p in acl.all_permissions or []:
+            if not p.permission_level or p.inherited:
+                continue
+            if "IS_OWNER" in perm_value(p.permission_level):  # only the SP owns
+                continue
+            if acl.user_name:
+                keep.append(iam.AccessControlRequest(user_name=acl.user_name, permission_level=p.permission_level))
+            elif acl.group_name:
+                keep.append(iam.AccessControlRequest(group_name=acl.group_name, permission_level=p.permission_level))
+            elif acl.service_principal_name:
+                keep.append(
+                    iam.AccessControlRequest(
+                        service_principal_name=acl.service_principal_name, permission_level=p.permission_level
+                    )
+                )
+    w.permissions.set(request_object_type=api_type, request_object_id=str(oid), access_control_list=keep)
+    return f"OK set SP {owner_sp} IS_OWNER on {api_type}/{oid} (was {row['current_owner']})"
+
+
 def _revoke_cluster_grant(row: dict, w: WorkspaceClient, dry_run: bool) -> str:
     """Remove the departed admin's explicit entitlement on an all-purpose cluster.
 
@@ -715,8 +779,12 @@ def transfer_row(
 ) -> str:
     grp = row["proposed_new_owner"] or cfg.target_group
     method = row["transfer_method"]
+    # "Already owned" idempotency applies only to methods that transfer to a group and
+    # whose current_owner is a comparable ownership principal. permissions_api reassigns
+    # to an SP (its own skip logic lives in _reassign_owner_to_sp); wsfs/run_as/
+    # cluster_revoke don't have a group owner to compare.
     if (
-        method not in ("wsfs_permissions", "jobs_update_run_as", "cluster_revoke")
+        method not in ("wsfs_permissions", "jobs_update_run_as", "cluster_revoke", "permissions_api")
         and (row.get("current_owner") or "").lower() == grp.lower()
     ):
         return f"SKIP already owned by {grp}"
@@ -754,18 +822,7 @@ def transfer_row(
         return f"OK PATCH {path} owner -> {grp}"
 
     if method == "permissions_api":
-        if dry_run:
-            return f"DRY-RUN set {grp} IS_OWNER on {row['securable_type']}/{row['object_id']}"
-        w.permissions.update(
-            request_object_type=row["securable_type"],
-            request_object_id=str(row["object_id"]),
-            access_control_list=[
-                iam.AccessControlRequest(
-                    group_name=grp, permission_level=iam.PermissionLevel.IS_OWNER
-                )
-            ],
-        )
-        return f"OK set {grp} IS_OWNER on {row['securable_type']}/{row['object_id']}"
+        return _reassign_owner_to_sp(row, w, dry_run)
 
     if method == "wsfs_permissions":
         api_type, oid = row["securable_type"], row["object_id"]

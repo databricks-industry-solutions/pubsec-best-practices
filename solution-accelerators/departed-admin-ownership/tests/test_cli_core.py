@@ -287,6 +287,90 @@ def test_cluster_revoke_dry_run_needs_no_client():
     assert "CAN_RESTART" in msg
 
 
+# --- workspace-object ownership reassignment (to an SP, never a group) ----------
+def _acl_sp(sp, perms):
+    return types.SimpleNamespace(
+        user_name=None, group_name=None, service_principal_name=sp, all_permissions=perms
+    )
+
+
+def _perms_row(**over):
+    row = {
+        "securable_type": "jobs",
+        "object_id": "J1",
+        "full_name": "etl",
+        "current_owner": "gone@x.com",
+        "matched_admin": "gone@x.com",
+        "proposed_new_owner": "sp-owner-app",
+        "transfer_method": "permissions_api",
+    }
+    row.update(over)
+    return row
+
+
+def test_reassign_owner_dry_run_needs_no_client():
+    # Dry-run must not touch the client (cmd_transfer builds none in dry-run).
+    msg = core.transfer_row(_cfg(), _perms_row(), None, "", dry_run=True)
+    assert msg.startswith("DRY-RUN set SP sp-owner-app IS_OWNER")
+    assert "was gone@x.com" in msg
+
+
+def test_reassign_owner_skips_without_sp():
+    # No run_as SP configured for this workspace -> cannot reassign (group can't own).
+    msg = core.transfer_row(_cfg(), _perms_row(proposed_new_owner=""), None, "", dry_run=True)
+    assert msg.startswith("SKIP") and "run_as_sp_map" in msg
+
+
+def test_reassign_owner_puts_sp_as_sole_owner():
+    w = MagicMock()
+    w.permissions.get.side_effect = lambda request_object_type, request_object_id: types.SimpleNamespace(
+        access_control_list=[
+            _acl("gone@x.com", [_perm("IS_OWNER")]),  # departed admin (old owner)
+            _acl_sp("ci-sp-app", [_perm("CAN_VIEW")]),  # preserve
+            _acl("admins", [_perm("CAN_MANAGE", inherited=True)]),  # inherited -> drop
+        ]
+    )
+    captured = {}
+    w.permissions.set.side_effect = lambda request_object_type, request_object_id, access_control_list: captured.update(
+        acl=access_control_list
+    )
+    msg = core.transfer_row(_cfg(), _perms_row(), w, "", dry_run=False)
+    assert msg.startswith("OK set SP sp-owner-app IS_OWNER")
+    owners = [a for a in captured["acl"] if a.permission_level == core.iam.PermissionLevel.IS_OWNER]
+    assert len(owners) == 1 and owners[0].service_principal_name == "sp-owner-app"  # exactly one owner = SP
+    assert not any(getattr(a, "user_name", None) == "gone@x.com" for a in captured["acl"])  # admin dropped
+    assert not any(getattr(a, "group_name", None) == "admins" for a in captured["acl"])  # inherited not re-sent
+    # the other principal's direct grant is preserved
+    assert any(a.service_principal_name == "ci-sp-app" for a in captured["acl"])
+
+
+def test_reassign_owner_dedupes_existing_sp_grant_case_insensitive():
+    # The SP may already hold a non-owner grant, possibly in different case than
+    # run_as_sp_map stores. It must appear exactly once (as IS_OWNER), never duplicated.
+    w = MagicMock()
+    w.permissions.get.side_effect = lambda request_object_type, request_object_id: types.SimpleNamespace(
+        access_control_list=[
+            _acl("gone@x.com", [_perm("IS_OWNER")]),
+            _acl_sp("SP-Owner-App", [_perm("CAN_MANAGE")]),  # same SP, different case
+        ]
+    )
+    captured = {}
+    w.permissions.set.side_effect = lambda request_object_type, request_object_id, access_control_list: captured.update(
+        acl=access_control_list
+    )
+    core.transfer_row(_cfg(), _perms_row(proposed_new_owner="sp-owner-app"), w, "", dry_run=False)
+    sp_entries = [a for a in captured["acl"] if (a.service_principal_name or "").lower() == "sp-owner-app"]
+    assert len(sp_entries) == 1
+    assert sp_entries[0].permission_level == core.iam.PermissionLevel.IS_OWNER
+
+
+def test_scope_ws_without_sp_is_warning_not_error():
+    # Regression: enabling scope_ws without a run_as_sp_map must NOT be a fatal config
+    # error (inventory should still run); ownership rows just get skipped at transfer.
+    cfg = _cfg(scope_ws=True, scope_run_as=False, run_as_sp_map={}, account_host="https://acct")
+    cfg.validate()  # must not raise SystemExit
+
+
 def test_dedupe_uc_drops_repeat_metastore_rows_keeps_per_workspace():
     from main import _dedupe_uc
 

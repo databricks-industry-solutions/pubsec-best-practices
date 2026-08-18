@@ -118,6 +118,17 @@ class Config:
             )
         if errs:
             raise SystemExit("Config errors:\n  - " + "\n  - ".join(errs))
+        # Warning (not fatal): workspace-object ownership (jobs/pipelines/warehouses/
+        # dashboards) can only be reassigned to a service principal, never a group. Without
+        # a run_as_sp_map entry for a workspace, those objects are inventoried but the
+        # transfer SKIPS them, leaving the departed admin as owner. Inventory still works.
+        if self.scope_ws and not self.run_as_sp_map:
+            log.warning(
+                "scope.workspace_objects is on but run_as_sp_map is empty — object OWNERSHIP "
+                "(jobs/pipelines/warehouses/dashboards) can only go to a service principal, so "
+                "the transfer will SKIP those rows and the departed admin stays owner. Set "
+                "run_as_sp_map to reassign ownership."
+            )
 
 
 def account_client(cfg: Config) -> AccountClient:
