@@ -22,6 +22,36 @@ Two phases, **dry-run first**:
 2. **`transfer`** — reads the reviewed table and reassigns ownership to the target
    group. Defaults to **dry-run**; set `execute = true` to apply. Idempotent.
 
+## Companion: revoke account-level access (`scripts/offboard_account_access.py`)
+
+Ownership transfer re-homes what the admin *owns*; it doesn't remove the admin's own
+*access*. Once ownership is transferred, run the standalone script to strip a departed
+admin of account-level access:
+
+- membership in every account-level **group**,
+- **direct** SCIM **roles** (e.g. a directly-granted `account_admin`),
+- **direct** account **entitlements**,
+- per-workspace **access assignments** across every workspace.
+
+Roles/entitlements inherited *via a group* (e.g. `account_admin` from the `admins` group)
+clear automatically when the group memberships are removed. With `--deactivate` it also
+sets each account to inactive (`active=false`) as a **final step**, after access is
+removed (reversible; does not delete the account). Dry-run by default:
+
+```bash
+# preview
+python scripts/offboard_account_access.py --profile <account-profile> \
+    --admins former1@corp.com,former2@corp.com
+# apply, and deactivate the accounts as the final step
+python scripts/offboard_account_access.py --profile <account-profile> \
+    --admins former1@corp.com,former2@corp.com --deactivate --execute
+```
+
+**Recommended offboarding order:** (1) transfer ownership (this toolkit) → (2) run
+`offboard_account_access.py --deactivate` → (3) later, delete the account if desired.
+Doing it in this order means nothing the admin owned is orphaned and their access is
+fully revoked before the account is disabled.
+
 ## What gets covered
 
 | Domain | Objects | Owner source | Transfer |
