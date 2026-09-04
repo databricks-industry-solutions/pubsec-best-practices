@@ -1,0 +1,47 @@
+name: departed-admin-ownership
+
+on:
+  push:
+    branches:
+      - main
+      - 'departed-admin-ownership/**'
+    paths:
+      - 'solution-accelerators/departed-admin-ownership/**'
+      - '.github/workflows/solution-accelerators/departed-admin-ownership.yml'
+      - '.github/workflows/_templates/**'
+  pull_request:
+    paths:
+      - 'solution-accelerators/departed-admin-ownership/**'
+      - '.github/workflows/solution-accelerators/departed-admin-ownership.yml'
+      - '.github/workflows/_templates/**'
+
+jobs:
+  test:
+    uses: ./.github/workflows/_templates/tests.yml
+    with:
+      project_path: solution-accelerators/departed-admin-ownership
+
+  # Uncomment when infrastructure is ready
+  # deploy-infra:
+  #   needs: test
+  #   if: github.ref == 'refs/heads/main'
+  #   uses: ./.github/workflows/_templates/deploy-infra.yml
+  #   with:
+  #     project_path: solution-accelerators/departed-admin-ownership
+  #     environment: dev
+  #   secrets:
+  #     ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+  #     ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+  #     ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  #     ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+
+  # deploy-dabs:
+  #   needs: deploy-infra
+  #   if: github.ref == 'refs/heads/main'
+  #   uses: ./.github/workflows/_templates/deploy-dabs.yml
+  #   with:
+  #     project_path: solution-accelerators/departed-admin-ownership
+  #     environment: dev
+  #   secrets:
+  #     DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+  #     DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}

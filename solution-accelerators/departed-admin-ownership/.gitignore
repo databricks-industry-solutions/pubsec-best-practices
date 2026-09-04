@@ -1,0 +1,4 @@
+# CLI runtime artifacts — never commit real config or inventory output
+cli/config.yaml
+cli/out/
+out/

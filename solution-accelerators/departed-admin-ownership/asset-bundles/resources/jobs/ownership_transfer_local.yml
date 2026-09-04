@@ -1,0 +1,76 @@
+resources:
+  jobs:
+    ownership_transfer_local:
+      name: "[${bundle.target}] Departed Admin Ownership Transfer (workspace-local)"
+      description: >-
+        Workspace-local variant for network-restricted environments (workspace compute
+        cannot reach the account console). Deploy this bundle into EACH workspace and
+        run it there — it inventories and transfers only what this workspace can see, as
+        its own identity. Same two-step, dry-run-first design.
+      # Run the whole workflow:  databricks bundle run ownership_transfer_local -t dev
+      #   inventory  -> writes ${var.output_table} (a table local to THIS workspace)
+      #   transfer   -> DRY-RUN preview (execute defaults to false)
+      # To apply, run just the transfer task with execute=true:
+      #   databricks bundle run ownership_transfer_local -t dev --only transfer \
+      #     -- --notebook-params execute=true
+      #
+      # The crawl only sees objects the run identity can read, so pin run_as to a
+      # workspace-admin (and metastore-admin) service principal for full coverage.
+      run_as:
+        service_principal_name: ${var.run_identity_sp}
+      tasks:
+        - task_key: inventory
+          notebook_task:
+            notebook_path: ../notebooks/transfer_ownership_local.py
+            base_parameters:
+              departed_admins: ${var.departed_admins}
+              target_group: ${var.target_group}
+              phase: inventory
+              execute: "false"
+              scope_uc: ${var.scope_uc}
+              scope_ws: ${var.scope_ws}
+              scope_wsfs: ${var.scope_wsfs}
+              scope_run_as: ${var.scope_run_as}
+              run_as_sp: ${var.run_as_sp}
+              grant_run_as_sp_perms: ${var.grant_run_as_sp_perms}
+              wsfs_max_depth: ${var.wsfs_max_depth}
+              wsfs_workers: ${var.wsfs_workers}
+              skip_catalogs: ${var.skip_catalogs}
+              output_table: ${var.output_table}
+          job_cluster_key: sweep_cluster
+
+        - task_key: transfer
+          depends_on:
+            - task_key: inventory
+          notebook_task:
+            notebook_path: ../notebooks/transfer_ownership_local.py
+            base_parameters:
+              departed_admins: ${var.departed_admins}
+              target_group: ${var.target_group}
+              phase: transfer
+              # DRY-RUN by default. Override per-run to apply:
+              #   ... --only transfer -- --notebook-params execute=true
+              execute: "false"
+              scope_uc: ${var.scope_uc}
+              scope_ws: ${var.scope_ws}
+              scope_wsfs: ${var.scope_wsfs}
+              scope_run_as: ${var.scope_run_as}
+              run_as_sp: ${var.run_as_sp}
+              grant_run_as_sp_perms: ${var.grant_run_as_sp_perms}
+              wsfs_max_depth: ${var.wsfs_max_depth}
+              wsfs_workers: ${var.wsfs_workers}
+              skip_catalogs: ${var.skip_catalogs}
+              output_table: ${var.output_table}
+          job_cluster_key: sweep_cluster
+      job_clusters:
+        - job_cluster_key: sweep_cluster
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            num_workers: 0
+            data_security_mode: SINGLE_USER
+            spark_conf:
+              spark.master: "local[*]"
+              spark.databricks.cluster.profile: singleNode
+            custom_tags:
+              ResourceClass: SingleNode

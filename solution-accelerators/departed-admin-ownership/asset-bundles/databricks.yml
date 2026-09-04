@@ -1,0 +1,101 @@
+bundle:
+  name: departed-admin-ownership
+
+workspace:
+  host: ${var.databricks_host}
+
+variables:
+  databricks_host:
+    description: Databricks workspace URL
+  secret_scope:
+    description: Secret scope holding the account SP creds (blank = UC-only mode)
+    default: ""
+  secret_key_client_id:
+    description: Secret key for the account SP client_id
+    default: account_sp_client_id
+  secret_key_client_secret:
+    description: Secret key for the account SP client_secret
+    default: account_sp_client_secret
+  account_host:
+    description: "Account console host (AWS: accounts.cloud.databricks.com; Azure: accounts.azuredatabricks.net; GCP: accounts.gcp.databricks.com)"
+    default: https://accounts.cloud.databricks.com
+  account_id:
+    description: Databricks account ID (UUID)
+    default: ""
+  departed_admins:
+    description: Comma-separated departed-admin emails
+    default: ""
+  target_group:
+    description: Target account-level group to receive ownership
+    default: ""
+  scope_uc:
+    description: Include Unity Catalog objects
+    default: "true"
+  scope_ws:
+    description: Include workspace objects (needs account SP)
+    default: "true"
+  scope_wsfs:
+    description: Include workspace files/folders in departed-admin home trees (needs account SP)
+    default: "false"
+  scope_run_as:
+    description: Reassign job run_as from departed admins to a per-workspace SP (needs account SP)
+    default: "false"
+  run_as_sp_map:
+    description: 'Per-workspace run_as SP as JSON: {"<workspace_id>": "<sp_application_id>"} (account-based notebook)'
+    default: ""
+  run_as_sp:
+    description: run_as target SP application id for THIS workspace (workspace-local notebook)
+    default: ""
+  run_identity_sp:
+    # No default: the local job pins run_as to this SP, and an empty value renders an
+    # invalid run_as that the Jobs API rejects with a confusing error. Making it
+    # required fails fast with a clear "no value assigned" message instead. Only the
+    # workspace-local job (ownership_transfer_local) uses it; if you deploy only the
+    # account-based job you can pass any placeholder, or split the bundle.
+    description: Workspace-admin SP the local job runs AS, so the crawl sees every owner's objects (required)
+  grant_run_as_sp_perms:
+    description: Grant the target SP CAN_MANAGE on reassigned jobs during the execute step
+    default: "false"
+  wsfs_max_depth:
+    description: Max directory depth below a home root for the WSFS walk (0 = unlimited)
+    default: "0"
+  wsfs_workers:
+    description: Concurrent directory listers for the WSFS walk
+    default: "8"
+  workspace_ids:
+    description: Comma-separated workspace IDs to limit to (blank = all)
+    default: ""
+  skip_catalogs:
+    description: Comma-separated catalogs to skip
+    default: __databricks_internal,system
+  output_table:
+    description: Delta table for the inventory (catalog.schema.table)
+    default: ""
+  spark_version:
+    description: DBR version (UC-enabled)
+    default: 15.4.x-scala2.12
+  node_type_id:
+    description: Job cluster node type
+    default: m5d.large
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    default: true
+    variables:
+      databricks_host: ${DATABRICKS_HOST}
+
+  staging:
+    variables:
+      databricks_host: ${DATABRICKS_HOST}
+
+  prod:
+    mode: production
+    variables:
+      databricks_host: ${DATABRICKS_HOST}
+    # Pin the run identity to the account SP so the cross-workspace sweep works and
+    # runs are not tied to an individual:
+    # run_as:
+    #   service_principal_name: <account-sp-application-id>
