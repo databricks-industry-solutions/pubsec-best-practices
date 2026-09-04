@@ -1,0 +1,140 @@
+# ============================================================================
+# plane_rules.yaml
+#
+# Drives plane_transform.py: classify each resource the Databricks provider's
+# experimental exporter emits into one of the FIVE lifecycle planes
+# (see README.md for the plane model).
+#
+# The exporter emits a FLAT dump of `resource` + `import` blocks with its own
+# addresses. This file is the map from resource TYPE (and, for grants, the
+# securable it targets) to the plane it belongs in. plane_transform.py routes
+# each block into the matching environments/<plane>/ root, unchanged, so a
+# `terraform plan` reads as adopt (import), never create/destroy.
+#
+# Split on CADENCE x BLAST RADIUS, not resource type. Editing which plane a
+# type lands in is a one-line change here.
+# ============================================================================
+
+# resource TYPE -> plane. A type not listed anywhere is reported as
+# "unclassified" and dropped into environments/_unclassified/ for a human to
+# place — never silently guessed into a plane.
+planes:
+
+  # Plane 1 — account-infra: MWS + metastore wiring. Very low churn,
+  # catastrophic blast radius. Single state. Keep restrict_destroy armed.
+  account-infra:
+    - databricks_mws_workspaces
+    - databricks_mws_networks
+    - databricks_mws_storage_configurations
+    - databricks_mws_credentials
+    - databricks_mws_customer_managed_keys
+    - databricks_mws_private_access_settings
+    - databricks_mws_vpc_endpoint
+    - databricks_mws_log_delivery
+    - databricks_mws_permission_assignment
+    - databricks_metastore
+    - databricks_metastore_assignment
+
+  # Plane 2 — identity: account groups / service principals / SCIM memberships.
+  # Low churn, high blast radius (shared everywhere), applies first.
+  # NOTE: databricks_user is deliberately NOT here — see skip_resource_types.
+  identity:
+    - databricks_group
+    - databricks_service_principal
+    - databricks_group_member
+    - databricks_group_role
+    - databricks_service_principal_role
+    - databricks_service_principal_secret
+
+  # Plane 3 — uc-foundation: metastore-scoped, cross-domain UC plumbing.
+  # Low churn, high blast radius. One state per metastore.
+  uc-foundation:
+    - databricks_storage_credential
+    - databricks_external_location
+    - databricks_metastore_data_access
+    - databricks_connection
+    - databricks_share
+    - databricks_recipient
+    - databricks_provider
+
+  # Plane 4 — workspace-<env>: workspace-local compute + config. Medium churn,
+  # workspace-local blast radius. One state per workspace.
+  workspace:
+    - databricks_cluster
+    - databricks_cluster_policy
+    - databricks_instance_pool
+    - databricks_sql_endpoint
+    - databricks_sql_global_config
+    - databricks_directory
+    - databricks_secret_scope
+    - databricks_secret
+    - databricks_secret_acl
+    - databricks_workspace_conf
+    - databricks_ip_access_list
+    - databricks_repo
+    - databricks_notebook
+    - databricks_workspace_file
+    - databricks_dbfs_file
+    - databricks_global_init_script
+    - databricks_token
+
+  # Plane 5 — uc-governance-<domain>: catalogs / schemas / volumes and their
+  # grants. HIGH churn (grants especially), data-exposure blast radius.
+  # One state per data domain.
+  uc-governance:
+    - databricks_catalog
+    - databricks_schema
+    - databricks_volume
+    - databricks_registered_model
+    - databricks_sql_table
+    - databricks_function
+
+# ─── IAM scoping — drop individual users ─────────────────────────────────────
+# Manage only service principals and groups as Terraform. Individual users are
+# provisioned by the identity provider via SCIM, so they should NOT be Terraform-
+# managed. These types are dropped (reported, never routed into a plane), AND any
+# resource that only exists to reference one (e.g. a user's group_member entry) is
+# cascade-dropped so no reference dangles. SP and nested-group memberships stay.
+skip_resource_types:
+  - databricks_user
+
+# ─── Grants — routed by the SECURABLE they target, not a fixed plane ─────────
+# databricks_grants (authoritative, plural) and databricks_grant (singular)
+# straddle planes: metastore-level grants live in uc-foundation; catalog /
+# schema / volume grants live in uc-governance. plane_transform.py inspects the
+# securable attribute present in the block body to decide.
+grant_resource_types:
+  - databricks_grants
+  - databricks_grant
+
+grant_securable_planes:
+  metastore: uc-foundation
+  external_location: uc-foundation
+  storage_credential: uc-foundation
+  connection: uc-foundation
+  share: uc-foundation
+  foreign_connection: uc-foundation
+  catalog: uc-governance
+  schema: uc-governance
+  volume: uc-governance
+  table: uc-governance
+  function: uc-governance
+  model: uc-governance
+  registered_model: uc-governance
+  materialized_view: uc-governance
+# securable not matched above -> this fallback plane
+grant_default_plane: uc-governance
+
+# ─── databricks_permissions — workspace-object ACLs -> workspace plane ────────
+# (cluster / warehouse / job / directory / pool ACLs). Always workspace-local.
+permissions_resource_type: databricks_permissions
+permissions_plane: workspace
+
+# ─── Environment / domain routing ────────────────────────────────────────────
+# A single account-level export does not separate resources by workspace env or
+# data domain. For the demo we route all workspace-plane resources to one
+# environment label and all governance-plane resources to one domain label.
+# In a real refactor these come from per-workspace labels + a catalog->domain map
+# that you maintain alongside this file.
+default_workspace_env: dev
+default_governance_domain: default

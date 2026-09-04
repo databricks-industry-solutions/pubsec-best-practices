@@ -1,0 +1,28 @@
+# Auth + secrets — never commit
+.env
+fleet.conf
+
+# Live export output carries REAL account data (user names, SP ids, catalog names).
+# Ignore everything under captured/ EXCEPT the fabricated example fixture.
+captured/*
+!captured/example/
+!captured/example/**
+
+# Generated plane tree, plan scratch, logs, fetched provider binary
+generated/
+.plan/
+logs/
+.provider-bootstrap/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# Python / OS
+__pycache__/
+*.py[cod]
+.DS_Store
+*.log
