@@ -30,8 +30,10 @@ radius** into five planes:
 | `uc-governance-<domain>` | Catalogs, schemas, volumes and their grants | High | Data-exposure; one state per data domain |
 
 Classification lives entirely in [`plane_rules.yaml`](plane_rules.yaml) (resource type →
-plane; `databricks_grants` routed by the securable it targets). A type not listed there is
-never guessed — it lands in `environments/_unclassified/` for a human to place.
+plane; `databricks_grants` routed by the securable it targets; catalogs optionally routed
+to a per-workspace governance domain from their `databricks_workspace_binding`s — see
+[RUNBOOK](RUNBOOK.md) Step 3). A type not listed there is never guessed — it lands in
+`environments/_unclassified/` for a human to place.
 
 ## Quick start
 
@@ -42,7 +44,8 @@ either `bash` or PowerShell 7+ (pwsh).
 # 1. No creds — rebuild the plane tree from the bundled example fixture:
 ./run.sh --offline --collapse
 ls generated/databricks-terraform/environments/
-#   → identity  uc-foundation  uc-governance-default  workspace-dev
+#   → identity  uc-foundation  uc-governance-default  uc-governance-dev  workspace-dev
+#     (uc-governance-dev is the ISOLATED example catalog, split out by workspace binding)
 
 # 2. Live, single scope — export one account (or workspace) and transform:
 cp env.example .env         # set an account-admin SP (or a CLI profile)

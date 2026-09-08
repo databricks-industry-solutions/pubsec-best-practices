@@ -123,6 +123,15 @@ _SECURABLE_RE = re.compile(
     r"registered_model|materialized_view)\s*=",
     re.M,
 )
+# First `databricks_catalog.<name>` reference in a block body. Schemas
+# (catalog_name = databricks_catalog.X.id), volumes, grants (catalog =
+# databricks_catalog.X) and workspace bindings (securable_name =
+# databricks_catalog.X.name) all point at their catalog this way.
+_CATALOG_REF_RE = re.compile(r"databricks_catalog\.([A-Za-z0-9_]+)")
+# isolation_mode = "ISOLATED" on a catalog block (default is OPEN, unset).
+_ISOLATED_RE = re.compile(r'^\s*isolation_mode\s*=\s*"ISOLATED"', re.M)
+# workspace_id on a binding block — bare int or quoted.
+_WORKSPACE_ID_RE = re.compile(r'^\s*workspace_id\s*=\s*"?(\d+)"?', re.M)
 
 
 class Block:
@@ -161,6 +170,21 @@ class Block:
         m = _SECURABLE_RE.search(self.text)
         return m.group(1) if m else None
 
+    def catalog_ref(self) -> str | None:
+        """The `databricks_catalog.<name>` address this block points at, if any
+        (schemas/volumes/grants reference their parent catalog; a binding's
+        securable_name references the bound catalog). A catalog block itself has
+        no such reference — use its own .address for that."""
+        m = _CATALOG_REF_RE.search(self.text)
+        return f"databricks_catalog.{m.group(1)}" if m else None
+
+    def is_isolated_catalog(self) -> bool:
+        return self.rtype == "databricks_catalog" and bool(_ISOLATED_RE.search(self.text))
+
+    def workspace_id(self) -> str | None:
+        m = _WORKSPACE_ID_RE.search(self.text)
+        return m.group(1) if m else None
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Classifier
@@ -176,9 +200,16 @@ class Rules:
         self.grant_default_plane = cfg.get("grant_default_plane", "uc-governance")
         self.permissions_type = cfg.get("permissions_resource_type", "databricks_permissions")
         self.permissions_plane = cfg.get("permissions_plane", "workspace")
+        self.binding_type = cfg.get("binding_resource_type")
+        self.binding_plane = cfg.get("binding_plane", "uc-governance")
         self.skip_types = set(cfg.get("skip_resource_types") or [])
         self.ws_env = cfg.get("default_workspace_env", "dev")
         self.gov_domain = cfg.get("default_governance_domain", "default")
+        self.catalog_env_from_bindings = bool(cfg.get("catalog_env_from_bindings", False))
+        # workspace_id keys may be ints in YAML; normalize to str to match the export.
+        self.workspace_env_labels = {
+            str(k): v for k, v in (cfg.get("workspace_env_labels") or {}).items()
+        }
 
     def plane_for(self, b: Block) -> tuple[str, str | None]:
         """Return (plane, reason). plane is None-ish 'unclassified' if unknown."""
@@ -189,16 +220,77 @@ class Rules:
             return plane, f"grant on {sec or '?'}"
         if t == self.permissions_type:
             return self.permissions_plane, "workspace ACL"
+        if self.binding_type and t == self.binding_type:
+            return self.binding_plane, "workspace binding"
         if t in self.type_to_plane:
             return self.type_to_plane[t], "type"
         return "_unclassified", "unknown type"
 
-    def env_dir(self, plane: str) -> str:
+    def env_dir(self, plane: str, gov_domain: str | None = None) -> str:
         if plane == "workspace":
             return f"workspace-{self.ws_env}"
         if plane == "uc-governance":
-            return f"uc-governance-{self.gov_domain}"
+            return f"uc-governance-{gov_domain or self.gov_domain}"
         return plane
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Catalog → governance-domain map, derived from workspace bindings.
+# ─────────────────────────────────────────────────────────────────────────────
+class CatalogEnvMap:
+    """Resolves the governance domain for a uc-governance block from
+    databricks_workspace_binding data.
+
+    A UC metastore is shared across every workspace in its region, so one export
+    returns ALL catalogs. OPEN catalogs are reachable everywhere and stay in the
+    default (shared) domain. An ISOLATED catalog bound (via a workspace binding)
+    to exactly one LABELED workspace is routed to that workspace's domain, and its
+    schemas / volumes / grants / binding — all of which reference the catalog by
+    its `databricks_catalog.<name>` address — follow it there.
+    """
+
+    def __init__(self, resources: list[Block], rules: Rules):
+        self.rules = rules
+        self.catalog_env: dict[str, str] = {}   # catalog address -> env label
+        # diagnostics, surfaced in the report so nothing is silently guessed
+        self.unlabeled_ws: set[str] = set()     # bound workspace_ids with no label
+        self.ambiguous: set[str] = set()        # catalogs bound across >1 env
+        self.open_bound: set[str] = set()       # bound but OPEN -> stays shared
+
+        if not (rules.catalog_env_from_bindings and rules.binding_type):
+            return
+
+        # catalog address -> set of env labels it is bound to (labeled ws only)
+        bound_envs: dict[str, set[str]] = defaultdict(set)
+        for b in resources:
+            if b.rtype != rules.binding_type:
+                continue
+            cat, wsid = b.catalog_ref(), b.workspace_id()
+            if not cat or not wsid:
+                continue
+            label = rules.workspace_env_labels.get(wsid)
+            if label:
+                bound_envs[cat].add(label)
+            else:
+                self.unlabeled_ws.add(wsid)
+
+        isolated = {b.address for b in resources if b.is_isolated_catalog()}
+        for cat, envs in bound_envs.items():
+            if cat not in isolated:
+                self.open_bound.add(cat)        # a binding on an OPEN catalog: still shared
+            elif len(envs) == 1:
+                self.catalog_env[cat] = next(iter(envs))
+            else:
+                self.ambiguous.add(cat)         # dev+prod on one catalog -> leave shared
+
+    def domain_for(self, b: Block) -> str | None:
+        """Governance domain for a uc-governance block, or None to use the
+        default (shared) domain. The catalog is keyed by its own address; every
+        child/grant/binding is keyed by the catalog it references."""
+        if not self.catalog_env:
+            return None
+        key = b.address if b.rtype == "databricks_catalog" else b.catalog_ref()
+        return self.catalog_env.get(key) if key else None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -426,9 +518,15 @@ def main() -> int:
     plane_type_counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     unclassified: list[str] = []
 
+    # Derive the catalog -> governance-domain map from workspace bindings, so an
+    # ISOLATED catalog bound to a labeled workspace (and its children) route to
+    # that workspace's domain instead of the shared default.
+    cat_env = CatalogEnvMap(resources, rules)
+
     for b in resources:
         plane, _reason = rules.plane_for(b)
-        env_dir = rules.env_dir(plane)
+        gov_domain = cat_env.domain_for(b) if plane == "uc-governance" else None
+        env_dir = rules.env_dir(plane, gov_domain=gov_domain)
         imps = [i.text for i in imports_by_addr.get(b.address, [])]
         routed[plane][env_dir][b.rtype].append((b.text, imps))
         plane_type_counts[env_dir][b.rtype] += 1
@@ -451,6 +549,24 @@ def main() -> int:
         for env_dir, types in sorted(routed.get(plane, {}).items()):
             n = sum(len(v) for v in types.values())
             print(f"  {env_dir:<28}{n:>10}   {', '.join(sorted(types))}")
+    if rules.catalog_env_from_bindings:
+        if cat_env.catalog_env:
+            by_env: dict[str, int] = defaultdict(int)
+            for env in cat_env.catalog_env.values():
+                by_env[env] += 1
+            summary = ", ".join(f"{n}->uc-governance-{env}" for env, n in sorted(by_env.items()))
+            print(f"\nCatalog isolation routing (from workspace bindings): {summary}. "
+                  "All other catalogs stay in the shared default domain.")
+        else:
+            print("\nCatalog isolation routing: enabled, but no ISOLATED catalog was bound "
+                  "to a labeled workspace — all catalogs stay in the shared default domain.")
+        if cat_env.unlabeled_ws:
+            print(f"  ⚠ bindings reference {len(cat_env.unlabeled_ws)} unlabeled workspace_id(s) "
+                  f"(add to workspace_env_labels): {', '.join(sorted(cat_env.unlabeled_ws))}")
+        if cat_env.ambiguous:
+            print(f"  ⚠ {len(cat_env.ambiguous)} ISOLATED catalog(s) bound across >1 env "
+                  f"-> left in shared domain: {', '.join(sorted(cat_env.ambiguous))}")
+
     if unclassified:
         print(f"\n  ⚠ {len(unclassified)} unclassified -> environments/_unclassified/ : "
               f"{', '.join(sorted(set(unclassified)))}")

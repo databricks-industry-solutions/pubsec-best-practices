@@ -53,6 +53,26 @@ import {
 }
 
 import {
+  id = "dev_sandbox"
+  to = databricks_catalog.dev_sandbox
+}
+
+import {
+  id = "dev_sandbox.scratch"
+  to = databricks_schema.dev_sandbox_scratch
+}
+
+import {
+  id = "catalog/dev_sandbox"
+  to = databricks_grants.dev_sandbox_catalog
+}
+
+import {
+  id = "1111111111111111|catalog|dev_sandbox"
+  to = databricks_workspace_binding.dev_sandbox
+}
+
+import {
   id = "0101-000000-abcd1234"
   to = databricks_cluster.shared_adhoc
 }

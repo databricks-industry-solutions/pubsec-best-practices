@@ -130,11 +130,46 @@ grant_default_plane: uc-governance
 permissions_resource_type: databricks_permissions
 permissions_plane: workspace
 
+# ─── databricks_workspace_binding — catalog↔workspace isolation bindings ─────
+# A binding pins an ISOLATED securable (here, a catalog) to a specific workspace.
+# It targets a catalog — a governance securable — so it rides in the uc-governance
+# plane, and catalog_env_from_bindings (below) routes it into the SAME domain as
+# the catalog it binds. Listed here so it is no longer reported _unclassified.
+binding_resource_type: databricks_workspace_binding
+binding_plane: uc-governance
+
 # ─── Environment / domain routing ────────────────────────────────────────────
 # A single account-level export does not separate resources by workspace env or
 # data domain. For the demo we route all workspace-plane resources to one
 # environment label and all governance-plane resources to one domain label.
 # In a real refactor these come from per-workspace labels + a catalog->domain map
-# that you maintain alongside this file.
+# that you maintain alongside this file. The workspace-binding-driven routing
+# below is one concrete way to derive that catalog->domain map.
 default_workspace_env: dev
 default_governance_domain: default
+
+# ─── Catalog → governance-domain routing from workspace bindings ─────────────
+# A UC metastore is shared by every workspace in its region, so a single
+# metastore/account-scope export returns ALL catalogs at once. OPEN catalogs are
+# reachable from every workspace and stay in default_governance_domain (the
+# "shared" domain). An ISOLATED catalog is reachable only from the workspace(s)
+# bound to it via databricks_workspace_binding; when catalog_env_from_bindings is
+# on, such a catalog — and the schemas / volumes / grants / bindings that
+# reference it — is routed to the governance domain of that workspace (a dev-only
+# catalog -> uc-governance-dev), using the workspace_id -> label map below.
+#
+# Deliberately conservative: a catalog is env-routed ONLY when it is both
+# isolation_mode = "ISOLATED" AND bound to exactly one LABELED workspace. A
+# catalog that is OPEN, bound to an unlabeled workspace, or bound across more than
+# one env falls back to default_governance_domain (reported, never guessed).
+catalog_env_from_bindings: true
+
+# workspace_id (verbatim from the export) -> governance-domain label.
+# Fill this in from your account's workspace list; unlabeled ids fall back to
+# default_governance_domain and are reported so you can add them. The id below
+# matches the fabricated example fixture (captured/example/); replace it with
+# your real workspace ids (e.g. dev / test / prod).
+workspace_env_labels:
+  "1111111111111111": dev
+  # "2222222222222222": test
+  # "3333333333333333": prod

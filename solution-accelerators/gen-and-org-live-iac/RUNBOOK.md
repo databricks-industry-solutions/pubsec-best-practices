@@ -127,6 +127,21 @@ are safe).
 - **Identity scoping:** individual `databricks_user` resources are dropped (users come from
   the IdP via SCIM, not Terraform); groups + SPs + memberships are kept. See
   `skip_resource_types` in `plane_rules.yaml`.
+- **Catalog isolation → governance domain:** a UC metastore is shared by every workspace in
+  its region, so one export returns *all* catalogs at once. By default they land in the
+  shared `uc-governance-default` root. When you know which catalogs are pinned to which
+  workspace (e.g. a dev-only `ISOLATED` catalog reachable only from the dev workspace), set
+  `catalog_env_from_bindings: true` and fill in `workspace_env_labels`
+  (`<workspace_id>: dev|test|prod`) in `plane_rules.yaml`. The transform then reads the
+  exported `databricks_workspace_binding` blocks and routes each **`ISOLATED` catalog bound
+  to exactly one labeled workspace — plus its schemas, volumes, grants, and the binding
+  itself** — into `uc-governance-<env>`, so a dev catalog and its subtree become one
+  `uc-governance-dev` state. Conservative by design: `OPEN` catalogs, catalogs on unlabeled
+  workspaces, and catalogs bound across more than one env stay in `uc-governance-default`
+  and are **reported** (unlabeled workspace ids and ambiguous catalogs are printed) — never
+  guessed. The bundled example fixture ships one such catalog (`dev_sandbox`) so
+  `./run.sh --offline` produces a `uc-governance-dev` root; the run ends with a
+  `Catalog isolation routing:` summary of how many catalogs went to each env.
 
 To do it live in one shot (small estate): `./run.sh --fleet --collapse`.
 
@@ -145,7 +160,12 @@ is applied.**
 ./04_plan.sh uc-foundation          my-account-sp
 ./04_plan.sh workspace-dev          my-workspace    # workspace-level planes → ws profile
 ./04_plan.sh uc-governance-default  my-workspace
+./04_plan.sh uc-governance-dev      my-workspace    # one per env if catalog isolation routing is on
 ```
+
+If catalog isolation routing produced `uc-governance-<env>` roots (Step 3), plan each
+against the workspace whose catalogs it holds — a `uc-governance-dev` root against the dev
+workspace profile, and so on.
 
 Read the authoritative `Plan:` line:
 
