@@ -6,8 +6,8 @@
 #   ./04_plan.sh identity              my-account-sp
 #
 # It copies the generated root into .plan/<root>/, swaps in a profile-based
-# provider (the scaffolded providers.tf uses TFE-style vars), drops the
-# remote_state data.tf (its TFE workspaces don't exist in a demo), then
+# provider (the scaffolded providers.tf uses remote-backend-style vars), drops the
+# remote_state data.tf (its remote-backend workspaces don't exist in a demo), then
 # init + plan. A correct result is "N to import ... 0 to destroy".
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -23,7 +23,7 @@ command -v terraform >/dev/null 2>&1 || { echo "terraform not on PATH (brew: /op
 WORK=".plan/$ROOT"
 rm -rf "$WORK"; mkdir -p "$WORK"
 cp "$SRC"/*.tf "$WORK"/ 2>/dev/null || true
-rm -f "$WORK/data.tf"   # remote_state stubs reference TFE workspaces that don't exist in a demo
+rm -f "$WORK/data.tf"   # remote_state stubs reference remote-backend workspaces that don't exist in a demo
 
 printf 'provider "databricks" {}\n' > "$WORK/providers.tf"
 # Account-level roots (account-infra) reference var.databricks_account_id; the bare

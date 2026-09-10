@@ -70,4 +70,4 @@ fi
 echo
 echo "Done. Plane tree: $OUT_DIR/databricks-terraform/"
 echo "Next: cd into any environments/<root>/, terraform init, and speculative-plan"
-echo "through TFE — a first plan should be pure adopt/no-op (zero destroy)."
+echo "through your VCS-driven Terraform workflow — a first plan should be pure adopt/no-op (zero destroy)."

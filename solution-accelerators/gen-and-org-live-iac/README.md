@@ -94,7 +94,7 @@ First run may need `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`.
 
 ## Scale model
 
-Not everything multiplies by workspace count: under identity federation, users/groups are
+Not everything multiplies by workspace count: under identity federation, groups are
 **account-level (pulled once)**; catalogs/schemas/grants are **metastore-level (once per
 metastore)**; only compute/SQL/pools/policies are the per-workspace multiplier. Chunk on
 four axes — scope, workspace, service, and name (`MATCH`/`EXCLUDE_REGEX`) — plus incremental

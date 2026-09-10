@@ -3,7 +3,7 @@
   Speculative-plan one plane root against a LIVE workspace/account (Windows/PowerShell).
 .DESCRIPTION
   Copies the generated root into .plan/<root>/, swaps in a profile-based provider (the
-  scaffolded providers.tf uses TFE-style vars), drops the remote_state data.tf, then
+  scaffolded providers.tf uses remote-backend-style vars), drops the remote_state data.tf, then
   init + plan. A correct adoption result is "N to import ... 0 to destroy".
   SPECULATIVE ONLY — nothing is applied.
 .EXAMPLE
@@ -27,7 +27,7 @@ $work = ".plan/$Root"
 if (Test-Path $work) { Remove-Item -Recurse -Force $work }
 New-Item -ItemType Directory -Force -Path $work | Out-Null
 Get-ChildItem -Path $src -Filter *.tf -File | Copy-Item -Destination $work
-Remove-Item -Force (Join-Path $work "data.tf") -ErrorAction SilentlyContinue  # remote_state stubs → TFE ws that don't exist in a demo
+Remove-Item -Force (Join-Path $work "data.tf") -ErrorAction SilentlyContinue  # remote_state stubs → remote-backend workspaces that don't exist in a demo
 
 $providersTf = Join-Path $work "providers.tf"
 'provider "databricks" {}' | Set-Content -Path $providersTf -Encoding ascii

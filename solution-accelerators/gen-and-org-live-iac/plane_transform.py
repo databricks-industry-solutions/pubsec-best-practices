@@ -296,7 +296,7 @@ class CatalogEnvMap:
 # ─────────────────────────────────────────────────────────────────────────────
 # Scaffolding emitters
 # ─────────────────────────────────────────────────────────────────────────────
-PROVIDER_VERSION = "~> 1.130"  # pin in real use; verify against your TFE run image
+PROVIDER_VERSION = "~> 1.130"  # pin in real use; verify against your remote Terraform runner image
 
 _ACCOUNT_HOST = "https://accounts.cloud.databricks.com"
 
@@ -315,7 +315,7 @@ def versions_tf() -> str:
 
 
 def backend_tf(plane_dir: str) -> str:
-    return f'''# TFE/HCP remote backend — one workspace per root state.
+    return f'''# Remote backend (Terraform Cloud/Enterprise or equivalent) — one workspace per root state.
 # terraform {{
 #   backend "remote" {{
 #     organization = "your-org"
@@ -361,7 +361,7 @@ variable "databricks_workspace_host" {
 '''
 
 
-# remote_state wiring per the guide's TFE run-trigger DAG
+# remote_state wiring for the remote-backend run-trigger order
 _DATA_DEPS = {
     "uc-foundation": ["account-infra"],
     "workspace": ["account-infra", "identity"],
@@ -653,7 +653,7 @@ def _top_readme(routed, counts) -> str:
             lines.append(f"| `environments/{env_dir}` | {n} |")
     lines += [
         "",
-        "## TFE run-trigger order",
+        "## Run-trigger order",
         "",
         "```",
         "account-infra -> identity -> {uc-foundation, workspace-*} -> uc-governance-*",

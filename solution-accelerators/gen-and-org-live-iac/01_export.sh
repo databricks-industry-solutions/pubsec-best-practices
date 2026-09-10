@@ -49,8 +49,14 @@ fi
 #   2. Else SCOPE=<account|workspace|metastore> picks a sensible preset.
 #   3. Else the legacy account+UC default (back-compat with earlier snapshots).
 # Chunk by SCOPE so a large fleet is exported as independent, resumable passes:
-#   • account  — MWS + identity, once per account (users/groups are account-level
-#                under identity federation, so they do NOT multiply per workspace).
+#   • account  — MWS + identity, once per account (groups are account-level under
+#                identity federation, so they do NOT multiply per workspace).
+# The presets deliberately export `groups` but NOT `users`: individual users are
+# provisioned by the IdP via SCIM and are dropped by the transform anyway
+# (skip_resource_types in plane_rules.yaml), so pulling them is wasted work and the
+# per-member user expansion is slow on large accounts. Groups + service principals +
+# their memberships are kept; user->group memberships are cascade-dropped downstream.
+# (Set SERVICES=...,users explicitly if you ever do need them.)
 #   • metastore— UC catalogs/schemas/grants + storage creds/ext locations, once per
 #                metastore (run against any workspace attached to that metastore).
 #   • workspace— compute/SQL/pools/policies, once per workspace (the ×N multiplier).
@@ -62,13 +68,13 @@ USER_LISTING="${LISTING:-}"
 USER_SERVICES="${SERVICES:-}"
 case "${SCOPE:-}" in
   account)   PRESET_LISTING="mws,groups"
-             PRESET_SERVICES="mws,groups,users,uc-metastores,uc-storage-credentials,uc-external-locations" ;;
+             PRESET_SERVICES="mws,groups,uc-metastores,uc-storage-credentials,uc-external-locations" ;;
   metastore) PRESET_LISTING="uc-catalogs,uc-schemas,uc-grants,uc-storage-credentials,uc-external-locations"
              PRESET_SERVICES="uc-catalogs,uc-schemas,uc-grants,uc-storage-credentials,uc-external-locations,uc-connections" ;;
   workspace) PRESET_LISTING="compute,sql-endpoints,pools,policies"
              PRESET_SERVICES="compute,sql-endpoints,pools,policies" ;;
   "")        PRESET_LISTING="mws,groups,uc-catalogs,uc-schemas,uc-grants,uc-external-locations,uc-storage-credentials"
-             PRESET_SERVICES="mws,groups,users,uc-catalogs,uc-schemas,uc-grants,uc-metastores,uc-external-locations,uc-storage-credentials,uc-connections" ;;
+             PRESET_SERVICES="mws,groups,uc-catalogs,uc-schemas,uc-grants,uc-metastores,uc-external-locations,uc-storage-credentials,uc-connections" ;;
   *)         echo "unknown SCOPE='$SCOPE' (use account|metastore|workspace, or set LISTING/SERVICES)" >&2; exit 2 ;;
 esac
 SERVICES="${USER_SERVICES:-$PRESET_SERVICES}"

@@ -77,8 +77,8 @@ sh("terraform fmt -recursive generated/databricks-terraform >/dev/null; echo fmt
 
 # %% [markdown]
 # ### The result: reality, reorganized by lifecycle
-# Each `environments/<root>/` is one TFE workspace / one state, wired in the
-# guide's run-trigger order and carrying its import blocks.
+# Each `environments/<root>/` is one remote Terraform workspace / one state, wired
+# in the run-trigger order and carrying its import blocks.
 
 # %%
 sh("find generated/databricks-terraform -maxdepth 2 -type d | sort")

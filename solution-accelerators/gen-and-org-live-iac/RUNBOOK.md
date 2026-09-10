@@ -24,16 +24,16 @@ Not everything multiplies by workspace count. Size the export against this:
 
 | Resource class | Scope | Chunk | Scales with |
 |---|---|---|---|
-| Users, groups, SPs | Account (under identity federation) | `account` | Account size — pulled **once**, not ×workspaces |
+| Groups, SPs (users skipped — see Step 3) | Account (under identity federation) | `account` | Account size — pulled **once**, not ×workspaces |
 | MWS (networks, credentials, storage, workspaces) | Account | `account` | Small |
 | Catalogs, schemas, grants | Metastore | `metastore` (one per metastore) | Metastore size — **once per metastore** |
 | `uc-tables` | Metastore | *(excluded by default)* | Usually far too many; add only if needed |
 | Clusters, jobs, pools, policies, warehouses, secrets | Workspace | `workspace` (one per ws) | **The ×N multiplier** |
 
 > **Verify identity federation first.** With account-level SCIM (identity federation),
-> thousands of users/groups are a one-time `account` pull. If workspaces still use
-> workspace-local SCIM, identity multiplies per workspace — move `groups`/`users` into each
-> `workspace` chunk instead.
+> groups are a one-time `account` pull. If workspaces still use workspace-local SCIM,
+> identity multiplies per workspace — move `groups` into each `workspace` chunk instead.
+> (Individual users aren't exported by default; see the identity-scoping note in Step 3.)
 
 **Four chunking axes** (all first-class): **scope** (`SCOPE=account|metastore|workspace`
 presets), **workspace** (one chunk per workspace — the primary unit for many workspaces),
@@ -126,7 +126,10 @@ are safe).
   never guessed. Triage: add the type to `plane_rules.yaml` and re-run, or place it by hand.
 - **Identity scoping:** individual `databricks_user` resources are dropped (users come from
   the IdP via SCIM, not Terraform); groups + SPs + memberships are kept. See
-  `skip_resource_types` in `plane_rules.yaml`.
+  `skip_resource_types` in `plane_rules.yaml`. To match this, the export presets
+  (`01_export.sh`) deliberately request `groups` but **not** the `users` service — skipping
+  the slow per-member user expansion for data that would be dropped anyway. Add
+  `SERVICES=...,users` explicitly only if you have a reason to manage individual users.
 - **Catalog isolation → governance domain:** a UC metastore is shared by every workspace in
   its region, so one export returns *all* catalogs at once. By default they land in the
   shared `uc-governance-default` root. When you know which catalogs are pinned to which
