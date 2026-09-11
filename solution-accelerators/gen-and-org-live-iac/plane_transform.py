@@ -540,7 +540,7 @@ def main() -> int:
         print("Regenerated (dropped exporter copies): " +
               ", ".join(f"{k}x{v}" for k, v in dropped_kinds.items()))
     if skipped_report:
-        print("Skipped (IAM scoping — users not Terraform-managed): " +
+        print("Skipped (IAM scoping — IdP/SCIM-managed, not Terraform): " +
               ", ".join(f"{k}×{v}" for k, v in sorted(skipped_report.items())))
     print("\nPlane classification:")
     print(f"  {'environment root':<28}{'resources':>10}   types")

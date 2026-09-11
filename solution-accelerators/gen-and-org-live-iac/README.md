@@ -24,7 +24,7 @@ radius** into five planes:
 | Plane | What lives here | Churn | Blast radius |
 |---|---|---|---|
 | `account-infra` | Workspaces, networks, credentials, metastore wiring (MWS) | Very low | Catastrophic (keep `restrict_destroy` armed) |
-| `identity` | Account groups, service principals, SCIM memberships | Low | High (shared everywhere); applies first |
+| `identity` | Account groups, service principals, role assignments | Low | High (shared everywhere); applies first |
 | `uc-foundation` | Storage credentials, external locations, metastore-level grants | Low | High; one state per metastore |
 | `workspace-<env>` | Clusters, pools, policies, warehouses, secrets | Medium | Workspace-local; one state per workspace |
 | `uc-governance-<domain>` | Catalogs, schemas, volumes and their grants | High | Data-exposure; one state per data domain |

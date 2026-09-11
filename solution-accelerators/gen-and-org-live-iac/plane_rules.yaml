@@ -35,13 +35,14 @@ planes:
     - databricks_metastore
     - databricks_metastore_assignment
 
-  # Plane 2 — identity: account groups / service principals / SCIM memberships.
+  # Plane 2 — identity: account groups / service principals / role assignments.
   # Low churn, high blast radius (shared everywhere), applies first.
-  # NOTE: databricks_user is deliberately NOT here — see skip_resource_types.
+  # NOTE: databricks_user AND databricks_group_member are deliberately NOT here —
+  # both are dropped (see skip_resource_types): membership is IdP/SCIM-managed, not
+  # Terraform. Groups + SPs are managed; who belongs to a group is not.
   identity:
     - databricks_group
     - databricks_service_principal
-    - databricks_group_member
     - databricks_group_role
     - databricks_service_principal_role
     - databricks_service_principal_secret
@@ -89,14 +90,17 @@ planes:
     - databricks_sql_table
     - databricks_function
 
-# ─── IAM scoping — drop individual users ─────────────────────────────────────
-# Manage only service principals and groups as Terraform. Individual users are
-# provisioned by the identity provider via SCIM, so they should NOT be Terraform-
-# managed. These types are dropped (reported, never routed into a plane), AND any
-# resource that only exists to reference one (e.g. a user's group_member entry) is
-# cascade-dropped so no reference dangles. SP and nested-group memberships stay.
+# ─── IAM scoping — drop users and group memberships ──────────────────────────
+# Manage only groups and service principals as Terraform. Individual users AND all
+# group memberships are provisioned by the identity provider via SCIM (or a separate
+# identity process), so they should NOT be Terraform-managed. These types are dropped
+# (reported, never routed into a plane), AND any resource that only exists to reference
+# one is cascade-dropped so no reference dangles. Groups, SPs, and role assignments stay;
+# who belongs to which group does not. (The exporter's `groups` service always pulls
+# memberships — there's no export-time toggle — so dropping them here is the lever.)
 skip_resource_types:
   - databricks_user
+  - databricks_group_member
 
 # ─── Grants — routed by the SECURABLE they target, not a fixed plane ─────────
 # databricks_grants (authoritative, plural) and databricks_grant (singular)

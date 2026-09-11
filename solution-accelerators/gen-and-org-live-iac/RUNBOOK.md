@@ -125,12 +125,15 @@ are safe).
 - Output: `generated/databricks-terraform/environments/<plane>/`.
 - **`environments/_unclassified/`** holds any resource type absent from `plane_rules.yaml` —
   never guessed. Triage: add the type to `plane_rules.yaml` and re-run, or place it by hand.
-- **Identity scoping:** individual `databricks_user` resources are dropped (users come from
-  the IdP via SCIM, not Terraform); groups + SPs + memberships are kept. See
-  `skip_resource_types` in `plane_rules.yaml`. To match this, the export presets
-  (`01_export.sh`) deliberately request `groups` but **not** the `users` service — skipping
-  the slow per-member user expansion for data that would be dropped anyway. Add
-  `SERVICES=...,users` explicitly only if you have a reason to manage individual users.
+- **Identity scoping:** `databricks_user` **and** `databricks_group_member` are dropped —
+  both users and group membership are IdP/SCIM-managed, not Terraform. Groups, service
+  principals, and role assignments are kept; *who belongs to which group* is not. See
+  `skip_resource_types` in `plane_rules.yaml`. On the export side, the presets
+  (`01_export.sh`) request `groups` but **not** `users`, skipping the slow per-member user
+  expansion for data that would be dropped anyway. Memberships can't be excluded at export
+  (the `groups` service always pulls them), so they're dropped in the transform instead. Add
+  `SERVICES=...,users` and remove the `databricks_group_member` / `databricks_user` skips
+  only if you actually intend to manage individual identity in Terraform.
 - **Catalog isolation → governance domain:** a UC metastore is shared by every workspace in
   its region, so one export returns *all* catalogs at once. By default they land in the
   shared `uc-governance-default` root. When you know which catalogs are pinned to which
