@@ -74,20 +74,27 @@ if (-not $providerBin) { Write-Error "run .\00_prereqs.ps1 first (sets the provi
 # ── what to enumerate ─────────────────────────────────────────────────────────
 # 1. explicit -Listing/-Services win (Listing follows Services if only Services set)
 # 2. else -Scope preset  3. else legacy account+UC default (back-compat)
-# The presets export `groups` but NOT `users`: individual users come from the IdP via
-# SCIM and are dropped by the transform anyway (skip_resource_types in plane_rules.yaml),
-# so pulling them is wasted work and the per-member user expansion is slow on large
-# accounts. Groups + service principals + their memberships are kept; user->group
-# memberships are cascade-dropped downstream. (Pass -Services ...,users if you need them.)
+#
+# LISTING vs SERVICES — get this right or resources silently vanish. The exporter LISTS
+# (enumerates) only the services in -listing; -services merely FILTERS which transitive
+# dependencies of those are also imported. So a service in SERVICES but NOT in LISTING is
+# exported ONLY if something listed references it. Invariant: every service you want
+# captured for a scope must be in that scope's LISTING (each preset keeps LISTING ⊇ roots).
+#
+# Presets export `groups` but NOT `users`: individual users come from the IdP via SCIM and
+# are dropped by the transform anyway (skip_resource_types in plane_rules.yaml), so pulling
+# them is wasted work and the per-member user expansion is slow on large accounts. Groups +
+# service principals + their memberships are kept; user->group memberships are cascade-dropped
+# downstream. (Pass -Services ...,users if you need them.)
 switch ($Scope) {
-  'account'   { $presetListing = 'mws,groups'
-                $presetServices = 'mws,groups,uc-metastores,uc-storage-credentials,uc-external-locations' }
-  'metastore' { $presetListing = 'uc-catalogs,uc-schemas,uc-grants,uc-storage-credentials,uc-external-locations'
+  'account'   { $presetListing = 'mws,groups,uc-metastores'
+                $presetServices = 'mws,groups,uc-metastores' }
+  'metastore' { $presetListing = 'uc-catalogs,uc-schemas,uc-grants,uc-storage-credentials,uc-external-locations,uc-connections'
                 $presetServices = 'uc-catalogs,uc-schemas,uc-grants,uc-storage-credentials,uc-external-locations,uc-connections' }
   'workspace' { $presetListing = 'compute,sql-endpoints,pools,policies'
                 $presetServices = 'compute,sql-endpoints,pools,policies' }
-  default     { $presetListing = 'mws,groups,uc-catalogs,uc-schemas,uc-grants,uc-external-locations,uc-storage-credentials'
-                $presetServices = 'mws,groups,uc-catalogs,uc-schemas,uc-grants,uc-metastores,uc-external-locations,uc-storage-credentials,uc-connections' }
+  default     { $presetListing = 'mws,groups,uc-metastores,uc-catalogs,uc-schemas,uc-grants,uc-external-locations,uc-storage-credentials,uc-connections'
+                $presetServices = 'mws,groups,uc-metastores,uc-catalogs,uc-schemas,uc-grants,uc-external-locations,uc-storage-credentials,uc-connections' }
 }
 $svc = if ($servicesArg) { $servicesArg } else { $presetServices }
 if     ($listingArg)  { $lst = $listingArg }

@@ -71,9 +71,10 @@ $EDITOR fleet.conf
 ```
 
 One line per chunk: `<name> <profile> <scope> [services]`. Build it as **one `account`
-chunk** (MWS + identity), **one `metastore` chunk per metastore**, and **one `workspace`
-chunk per workspace**. `uc-tables` is excluded by the presets on purpose; add a
-`MATCH_REGEX`/`EXCLUDE_REGEX` to drop scratch/temp noise.
+chunk** (MWS + identity + the account-level metastore object), **one `metastore` chunk per
+metastore** (catalogs/schemas/grants + storage credentials/external locations/connections),
+and **one `workspace` chunk per workspace**. `uc-tables` is excluded by the presets on
+purpose; add a `MATCH_REGEX`/`EXCLUDE_REGEX` to drop scratch/temp noise.
 
 ```bash
 ./02_export_fleet.sh --dry-run     # print the plan (chunks, profiles, output dirs); exports nothing

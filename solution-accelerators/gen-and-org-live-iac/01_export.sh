@@ -49,32 +49,42 @@ fi
 #   2. Else SCOPE=<account|workspace|metastore> picks a sensible preset.
 #   3. Else the legacy account+UC default (back-compat with earlier snapshots).
 # Chunk by SCOPE so a large fleet is exported as independent, resumable passes:
-#   • account  — MWS + identity, once per account (groups are account-level under
-#                identity federation, so they do NOT multiply per workspace).
+#   • account  — MWS + identity + the account-level metastore object, once per account
+#                (groups are account-level under identity federation, so they do NOT
+#                multiply per workspace).
+#   • metastore— UC catalogs/schemas/grants + storage creds/ext locations/connections,
+#                once per metastore (run against any workspace attached to that metastore).
+#   • workspace— compute/SQL/pools/policies, once per workspace (the ×N multiplier).
+#                Deliberately excludes uc-* (captured once at metastore scope) and
+#                uc-tables (usually far too many for a governance refactor).
+#
+# LISTING vs SERVICES — get this right or resources silently vanish. The exporter
+# LISTS (enumerates) only the services in -listing; -services merely FILTERS which
+# transitive dependencies of those are also imported. So a service in SERVICES but
+# NOT in LISTING is exported ONLY if something listed happens to reference it.
+# Invariant: every service you want captured for a scope must be in that scope's
+# LISTING (each preset below keeps LISTING ⊇ the roots it means to export).
+#
 # The presets deliberately export `groups` but NOT `users`: individual users are
 # provisioned by the IdP via SCIM and are dropped by the transform anyway
 # (skip_resource_types in plane_rules.yaml), so pulling them is wasted work and the
 # per-member user expansion is slow on large accounts. Groups + service principals +
 # their memberships are kept; user->group memberships are cascade-dropped downstream.
 # (Set SERVICES=...,users explicitly if you ever do need them.)
-#   • metastore— UC catalogs/schemas/grants + storage creds/ext locations, once per
-#                metastore (run against any workspace attached to that metastore).
-#   • workspace— compute/SQL/pools/policies, once per workspace (the ×N multiplier).
-#                Deliberately excludes uc-* (captured once at metastore scope) and
-#                uc-tables (usually far too many for a governance refactor).
+#
 # Capture what the caller set explicitly BEFORE applying a preset, so we can tell
 # "user narrowed SERVICES" from "SERVICES came from the preset".
 USER_LISTING="${LISTING:-}"
 USER_SERVICES="${SERVICES:-}"
 case "${SCOPE:-}" in
-  account)   PRESET_LISTING="mws,groups"
-             PRESET_SERVICES="mws,groups,uc-metastores,uc-storage-credentials,uc-external-locations" ;;
-  metastore) PRESET_LISTING="uc-catalogs,uc-schemas,uc-grants,uc-storage-credentials,uc-external-locations"
+  account)   PRESET_LISTING="mws,groups,uc-metastores"
+             PRESET_SERVICES="mws,groups,uc-metastores" ;;
+  metastore) PRESET_LISTING="uc-catalogs,uc-schemas,uc-grants,uc-storage-credentials,uc-external-locations,uc-connections"
              PRESET_SERVICES="uc-catalogs,uc-schemas,uc-grants,uc-storage-credentials,uc-external-locations,uc-connections" ;;
   workspace) PRESET_LISTING="compute,sql-endpoints,pools,policies"
              PRESET_SERVICES="compute,sql-endpoints,pools,policies" ;;
-  "")        PRESET_LISTING="mws,groups,uc-catalogs,uc-schemas,uc-grants,uc-external-locations,uc-storage-credentials"
-             PRESET_SERVICES="mws,groups,uc-catalogs,uc-schemas,uc-grants,uc-metastores,uc-external-locations,uc-storage-credentials,uc-connections" ;;
+  "")        PRESET_LISTING="mws,groups,uc-metastores,uc-catalogs,uc-schemas,uc-grants,uc-external-locations,uc-storage-credentials,uc-connections"
+             PRESET_SERVICES="mws,groups,uc-metastores,uc-catalogs,uc-schemas,uc-grants,uc-external-locations,uc-storage-credentials,uc-connections" ;;
   *)         echo "unknown SCOPE='$SCOPE' (use account|metastore|workspace, or set LISTING/SERVICES)" >&2; exit 2 ;;
 esac
 SERVICES="${USER_SERVICES:-$PRESET_SERVICES}"
